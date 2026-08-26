@@ -60,6 +60,13 @@ padding:12px 15px;font-size:12.5px;color:var(--tx2);margin-top:13px;line-height:
 .saved{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12.5px;color:var(--tx2);
 border:1px dashed var(--hair2);border-radius:var(--radius);padding:9px 13px;margin-top:11px}
 .saved b{color:var(--tx)}
+/* realised: a different colour from the platform box, because this is OUR record not theirs */
+.sells{border:1px solid var(--hair2);background:var(--panel2);border-radius:var(--radius);
+padding:12px 15px;font-size:12.5px;color:var(--tx2);margin-top:13px;line-height:1.6}
+.sells b{color:var(--tx)}
+.sells table{margin-top:6px;font-size:12.5px}
+.sells th{padding-bottom:6px}
+.sells td{padding:5px 10px 5px 0}
 /* a pending corporate action: informative, not an error - the money is real, just not credited yet */
 .ca{border:1px solid var(--em);background:rgba(21,90,120,.06);border-radius:var(--radius);
 padding:12px 15px;font-size:12.5px;color:var(--tx2);margin-top:13px;line-height:1.6}
@@ -303,7 +310,7 @@ function normalise(j){
   Object.values(g).forEach(G=>{
     Object.entries(G.pos).forEach(([s,p])=>{ if(p.q<=0) delete G.pos[s];
       else p.avg=p.costUnknown?null:p.cost/p.q; });
-    if(META[G.tag]) G.sc=META[G.tag].sc;   // the platform's own reported figures, if we have them
+    if(META[G.tag]){ G.sc=META[G.tag].sc; G.sells=META[G.tag].sells; }
   });
   return g;
 }
@@ -313,7 +320,7 @@ function render(){
   Object.values(GROUPS).forEach(G=>Object.keys(G.pos).forEach(s=>seen[s]=(seen[s]||0)+1));
   const dual=Object.keys(seen).filter(s=>seen[s]>1);
 
-  let html='', gVal=0, gCost=0, gCostPriced=0, gValPriced=0, gAdj=0;
+  let html='', gVal=0, gCost=0, gCostPriced=0, gValPriced=0, gAdj=0, gRealised=0;
   for(const [tag,G] of Object.entries(GROUPS)){
     const rows=Object.entries(G.pos).map(([s,p])=>{
       const px=PX[s];
@@ -355,6 +362,14 @@ function render(){
     // snapshots and snaps the implied ratio to a clean fraction. So: prompt, never conclude.
     const suspect=rows.filter(r=>!r.ca&&r.val!=null&&!r.noCost&&r.avg>0&&r.px/r.avg-1<-0.5);
 
+    // Realised, from sales recorded in the file. GROSS: brokerage, STT, stamp duty and GST are not
+    // in any Kite endpoint, so net realised is lower. And this covers only sales someone wrote down -
+    // a sale that was never recorded is invisible, which is why the label says "recorded".
+    const sells=(G.sells||[]).filter(x=>x&&x.q>0);
+    const realised=sells.reduce((a,x)=>a+(+x.realised_gross||0),0);
+    const proceeds=sells.reduce((a,x)=>a+(+x.proceeds||0),0);
+    gRealised+=realised;
+
     // <details> rather than a JS accordion: it collapses with no script, is keyboard operable and
     // Ctrl-F still finds text inside a closed one in current browsers.
     const flag = cas.length ? '<span class="bflag" title="Corporate action pending — figures understate">!</span>'
@@ -392,8 +407,12 @@ function render(){
           <div class="s ${unreal!=null?cls(unreal):''}">${unreal!=null&&costPriced
             ?sgn(unreal)+Math.abs(unreal/costPriced*100).toFixed(2)+'%'
             :'needs live prices'}</div></div>
-        <div class="c"><div class="k">Realised</div><div class="v mono" style="color:var(--tx3)">—</div>
-          <div class="s">needs sell history</div></div>
+        <div class="c"><div class="k">Realised</div>
+          <div class="v mono ${sells.length?cls(realised):''}" ${sells.length?'':'style="color:var(--tx3)"'}>${
+            sells.length?sgn(realised)+M(Math.abs(realised)):'—'}</div>
+          <div class="s">${sells.length
+            ?sells.length+(sells.length===1?' recorded sale':' recorded sales')+', gross of charges'
+            :'no sales recorded'}</div></div>
       </div>
       ${unpriced.length?`<div class="warn">No live price for <b>${unpriced.map(esc).join(', ')}</b> —
         excluded from Current value and Unrealised. Invested still counts it, because what you paid
@@ -421,6 +440,18 @@ function render(){
         about 20% — so it would be a split or bonus whose shares have not reached your demat. This
         page only sees your cost, not yesterday's close, so it cannot tell which. If it is a
         corporate action, record <span class="mono">pending_ca</span> against the holding.</div>`:''}
+      ${sells.length?`<div class="sells">
+        <b>Sold from this basket</b> — ${M(proceeds)} of proceeds, ${sgn(realised)}${M(Math.abs(realised))}
+        realised <b>gross</b>. Brokerage, STT, stamp duty and GST are in no Kite endpoint, so your net
+        is lower. Dividends are not here either.
+        <table style="margin-top:8px"><thead><tr><th>Stock</th><th class="r">Shares</th>
+          <th class="r">Price</th><th class="r">Proceeds</th><th class="r">Realised</th>
+          <th>When</th></tr></thead><tbody>
+        ${sells.map(x=>`<tr><td class="sym">${esc(x.s||'?')}</td><td class="r mono">${+x.q}</td>
+          <td class="r mono">${num(x.price)}</td><td class="r mono">${M(+x.proceeds||0)}</td>
+          <td class="r mono ${cls(+x.realised_gross||0)}">${sgn(+x.realised_gross||0)}${M(Math.abs(+x.realised_gross||0))}</td>
+          <td class="mono" style="font-size:12px">${esc(x.date||'—')}</td></tr>`).join('')}
+        </tbody></table></div>`:''}
       ${G.sc?`<div class="scbox">
         <b>The platform reports ${num(G.sc.total_returns_pct)}% total return</b> (${M(G.sc.total_returns)})
         against our ${cost?(unreal!=null?sgn(unreal)+Math.abs(unreal/costPriced*100).toFixed(2)+'%':'—'):'—'},
@@ -466,6 +497,10 @@ function render(){
       <div class="c"><div class="k">Total value</div><div class="v mono">${M(gVal)}</div>
         <div class="s">${Object.keys(GROUPS).length} baskets${gAdj?' · before pending shares':''}</div></div>
       <div class="c"><div class="k">Total invested</div><div class="v mono">${M(gCost)}</div></div>
+      <div class="c"><div class="k">Realised</div>
+        <div class="v mono ${gRealised?cls(gRealised):''}" ${gRealised?'':'style="color:var(--tx3)"'}>${
+          gRealised?sgn(gRealised)+M(Math.abs(gRealised)):'—'}</div>
+        <div class="s">${gRealised?'recorded sales, gross':'no sales recorded'}</div></div>
       <div class="c"><div class="k">Unrealised</div>
         <div class="v mono ${gUn!=null?cls(gUn):''}">${gUn!=null?sgn(gUn)+M(Math.abs(gUn)):'—'}</div>
         <div class="s ${gUn!=null?cls(gUn):''}">${gUn!=null&&gCostPriced
@@ -475,7 +510,14 @@ function render(){
       than one basket:</b> ${dual.map(esc).join(', ')}. Weights are computed inside each basket, so
       these are counted in both — correct per basket, but your real exposure to them is the sum, and
       rebalancing one basket cannot see the other half.</div>`:''}
-    </div>${gAdjNote}
+    </div>
+    ${gRealised&&gUn!=null?`<div class="sells" style="margin-top:14px">
+      <b>Total return so far:</b> <span class="mono">${sgn(gUn)}${M(Math.abs(gUn))}</span> unrealised
+      ${sgn(gRealised)} <span class="mono">${M(Math.abs(gRealised))}</span> realised =
+      <b class="mono ${cls(gUn+gRealised)}">${sgn(gUn+gRealised)}${M(Math.abs(gUn+gRealised))}</b>.
+      Still missing two things, both structurally: <b>dividends</b>, which no Kite endpoint exposes,
+      and <b>charges</b>, which are not in the orders or holdings APIs either. So this is an
+      under-count of the good and an over-count of the bad.</div>`:''}${gAdjNote}
     <h2>By basket
       <button class="sm" style="margin:0" onclick="allBaskets(true)">Expand all</button>
       <button class="sm" style="margin:0" onclick="allBaskets(false)">Collapse all</button>
