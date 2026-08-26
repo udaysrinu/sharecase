@@ -95,12 +95,16 @@ border:1px solid var(--hair2);border-radius:var(--radius-sm);padding:6px 10px;mi
 .rename input:focus{outline:none;border-color:var(--em);box-shadow:0 0 0 3px rgba(21,90,120,.16)}
 .bsum .bn{color:var(--tx3)}
 .bfig{margin-left:auto;font-size:16px;font-weight:500}
+/* rupees and percent both right-aligned in fixed columns so the five rows line up as a ledger */
+.bpnl{font-size:14px;font-weight:500;min-width:6.6em;text-align:right}
 .bpct{font-size:14px;font-weight:600;min-width:5.2em;text-align:right}
 .bflag{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;
 border-radius:50%;background:var(--em);color:#fff;font-family:var(--num);font-size:11px;font-weight:700}
 .bflag.warnflag{background:var(--gold)}
 h2 button.sm{margin-left:0}
-@media(max-width:620px){.bfig{margin-left:0}.bsum{gap:8px}}
+@media(max-width:620px){.bfig{margin-left:0}.bsum{gap:8px}
+  /* on a phone the three numbers wrap; drop the fixed widths so they pack instead of stretching */
+  .bpnl,.bpct{min-width:0}}
 button.sm{min-height:28px;padding:4px 11px;font-size:11.5px;margin-left:auto}
 table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13.5px}
 th{font-family:var(--num);font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--tx3);
@@ -384,8 +388,11 @@ function render(){
             :'Recorded by Kite against the order at placement.'}"
           >${tag===UNTAGGED?'no tag':esc(tag)}${G.src==='internal'?' <b>· internal</b>':''}</span>
         <span class="note bn" style="margin:0;font-style:normal">${rows.length} stocks</span>${flag}
-        <span class="bfig mono">${M(val)}</span>
-        <span class="bpct mono ${unreal!=null?cls(unreal):''}">${unreal!=null&&costPriced
+        <span class="bfig mono" title="Current value">${M(val)}</span>
+        <span class="bpnl mono ${unreal!=null?cls(unreal):''}" title="Unrealised, in rupees">${
+          unreal!=null?sgn(unreal)+M(Math.abs(unreal)):'—'}</span>
+        <span class="bpct mono ${unreal!=null?cls(unreal):''}" title="Unrealised, as a percentage of cost">${
+          unreal!=null&&costPriced
           ?sgn(unreal)+Math.abs(unreal/costPriced*100).toFixed(2)+'%':'—'}</span>
       </summary>
       <div class="rename">
