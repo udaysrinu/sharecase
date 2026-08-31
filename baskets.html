@@ -1,5 +1,9 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Baskets — sharecase</title>
+<!-- Same pinned SheetJS the workbench and dashboard already use, so a tradebook can be read here
+     too. SRI matters more than usual now: this origin holds the portfolio and the Kite api_key. -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"
+ integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <style>
 @font-face{font-family:'IBM Plex Sans';src:url(fonts/plex-sans-400.woff2)format('woff2');font-weight:400;font-display:swap}
 @font-face{font-family:'IBM Plex Sans';src:url(fonts/plex-sans-600.woff2)format('woff2');font-weight:600;font-display:swap}
@@ -67,6 +71,13 @@ padding:12px 15px;font-size:12.5px;color:var(--tx2);margin-top:13px;line-height:
 .sells table{margin-top:6px;font-size:12.5px}
 .sells th{padding-bottom:6px}
 .sells td{padding:5px 10px 5px 0}
+/* nine columns will not fit a phone. Scroll the table instead of shrinking the digits, and keep the
+   symbol pinned so a scrolled row is still identifiable. */
+details.bk>table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
+@media(max-width:760px){
+  details.bk>table{white-space:nowrap}
+  details.bk>table td.sym{position:sticky;left:0;background:var(--panel)}
+}
 /* a pending corporate action: informative, not an error - the money is real, just not credited yet */
 .ca{border:1px solid var(--em);background:rgba(21,90,120,.06);border-radius:var(--radius);
 padding:12px 15px;font-size:12.5px;color:var(--tx2);margin-top:13px;line-height:1.6}
@@ -159,9 +170,11 @@ text-align:center;background:linear-gradient(160deg,var(--panel),var(--bg2));cur
   and holdings carry no tag at all — so snapshot your orders on the day you place them, or the
   grouping is gone.</p>
   <label class="drop" id="drop" style="margin-top:14px">
-    <div style="font-family:var(--num);font-size:13px">Drop a <b>tagged orders</b> or <b>batch map</b> JSON</div>
-    <div class="note" style="font-style:normal">or click to browse · stays in this browser</div>
-    <input type="file" id="fin" accept=".json,application/json" class="sr">
+    <div style="font-family:var(--num);font-size:13px">Drop a <b>batch map JSON</b>, and any number
+      of <b>tradebook .xlsx</b> exports</div>
+    <div class="note" style="font-style:normal">select several at once · everything stays in this
+      browser · tradebooks add realised returns</div>
+    <input type="file" id="fin" multiple accept=".json,application/json,.xlsx,.xls" class="sr">
   </label>
   <div id="msg"></div>
   <div id="saved"></div>
@@ -201,14 +214,20 @@ const nameFor=(tag,label)=>names()[tag] || label
 // demanding the same JSON every time. It is your own position data: it never leaves the device,
 // there is no server to send it to, and "Forget" below removes it. Stored as the raw text so a
 // future change to normalise() re-reads the original rather than a stale parse of it.
-const DATAKEY='sc_basket_data';
+const DATAKEY='sc_basket_data', TRADEKEY='sc_trades';
 const saveData=text=>{ try{ localStorage.setItem(DATAKEY,JSON.stringify(
   {text, at:new Date().toISOString()})); }catch(e){} };   // quota: a big map can exceed 5 MB
 const loadSaved=()=>{ try{ return JSON.parse(localStorage.getItem(DATAKEY)||'null'); }
   catch(e){ return null; } };
+// Trades are kept too, so realised survives a reload without re-picking six xlsx files. Same
+// privacy position as the map: this browser only, cleared by Forget.
+const saveTrades=()=>{ try{ localStorage.setItem(TRADEKEY,JSON.stringify(TRADES)); }catch(e){} };
+const loadTrades=()=>{ try{ TRADES=JSON.parse(localStorage.getItem(TRADEKEY)||'{}'); }
+  catch(e){ TRADES={}; } };
 function forget(){
   // The tags, and the names you gave them, are position metadata too - so Forget removes all three.
-  try{ [DATAKEY,NAMEKEY,OPENKEY].forEach(k=>localStorage.removeItem(k)); }catch(e){}
+  try{ [DATAKEY,NAMEKEY,OPENKEY,TRADEKEY].forEach(k=>localStorage.removeItem(k)); }catch(e){}
+  TRADES={};
   GROUPS=null; PX={}; $('out').innerHTML=''; $('saved').innerHTML='';
   say('Forgotten. Drop a file to start again.','warn'); }
 const ago=iso=>{ const m=Math.round((Date.now()-new Date(iso))/60000);
@@ -264,8 +283,9 @@ async function priceChunk(syms){
 //   2. an array of holdings-ish rows      [{s|tradingsymbol, q|quantity, avg|average_price, tag}]
 //   3. a batches map                      {batches:{KEY:{tag,label,holdings:{SYM:{q,avg}}}}}
 // Everything collapses to: tag -> position per symbol, quantity-weighted average cost.
+let META={};   // tag -> the batch. Module scope: tradebook attribution needs it after normalise.
 function normalise(j){
-  const rows=[], META={};   // META: tag -> the batch, so basket-level extras survive the flattening
+  const rows=[]; META={};
   // src: 'kite' when the broker recorded the tag against the order, 'internal' when it is a label
   // we assigned ourselves. Baskets bought before we started tagging can only ever be 'internal',
   // and the UI has to say so — otherwise the chip reads as something get_orders would return.
@@ -325,6 +345,15 @@ function render(){
   const dual=Object.keys(seen).filter(s=>seen[s]>1);
 
   let html='', gVal=0, gCost=0, gCostPriced=0, gValPriced=0, gAdj=0, gRealised=0;
+  // computed once per render, not per basket
+  const TB=Object.keys(TRADES).length?tbRealised():null;
+  const TB_ALL=TB?tbAttribute(TB.matched):{};
+  const TB_BY_TAG={}; Object.entries(TB_ALL).forEach(([k,v])=>{ if(!k.startsWith('__')) TB_BY_TAG[k]=v; });
+  const TBSUM={
+    all:       Object.values(TB_ALL).reduce((a,b)=>a+b.pnl,0),
+    baskets:   Object.values(TB_BY_TAG).reduce((a,b)=>a+b.pnl,0),
+    unknown:   (TB_ALL['__unknown__']||{pnl:0}).pnl,
+    ambiguous: (TB_ALL['__ambiguous__']||{pnl:0}).pnl };
   for(const [tag,G] of Object.entries(GROUPS)){
     const rows=Object.entries(G.pos).map(([s,p])=>{
       const px=PX[s];
@@ -369,9 +398,14 @@ function render(){
     // Realised, from sales recorded in the file. GROSS: brokerage, STT, stamp duty and GST are not
     // in any Kite endpoint, so net realised is lower. And this covers only sales someone wrote down -
     // a sale that was never recorded is invisible, which is why the label says "recorded".
+    // Two sources of realised, deliberately not mixed: the ledger (recorded by hand, authoritative
+    // for basket attribution) and the tradebooks (reconstructed by FIFO, covers all history).
+    // Tradebooks win when present, because they are complete; the ledger is the fallback.
     const sells=(G.sells||[]).filter(x=>x&&x.q>0);
-    const realised=sells.reduce((a,x)=>a+(+x.realised_gross||0),0);
-    const proceeds=sells.reduce((a,x)=>a+(+x.proceeds||0),0);
+    const tb=TB_BY_TAG[tag];
+    const realised=tb?tb.pnl:sells.reduce((a,x)=>a+(+x.realised_gross||0),0);
+    const proceeds=tb?tb.proceeds:sells.reduce((a,x)=>a+(+x.proceeds||0),0);
+    const realSrc=tb?'tradebook, FIFO':'recorded ledger';
     gRealised+=realised;
 
     // <details> rather than a JS accordion: it collapses with no script, is keyboard operable and
@@ -415,10 +449,10 @@ function render(){
             ?sgn(unreal)+Math.abs(unreal/costPriced*100).toFixed(2)+'%'
             :'needs live prices'}</div></div>
         <div class="c"><div class="k">Realised</div>
-          <div class="v mono ${sells.length?cls(realised):''}" ${sells.length?'':'style="color:var(--tx3)"'}>${
-            sells.length?sgn(realised)+M(Math.abs(realised)):'—'}</div>
-          <div class="s">${sells.length
-            ?sells.length+(sells.length===1?' recorded sale':' recorded sales')+', gross of charges'
+          <div class="v mono ${(tb||sells.length)?cls(realised):''}" ${(tb||sells.length)?'':'style="color:var(--tx3)"'}>${
+            (tb||sells.length)?sgn(realised)+M(Math.abs(realised)):'—'}</div>
+          <div class="s">${(tb||sells.length)
+            ?realSrc+', gross of charges'
             :'no sales recorded'}</div></div>
       </div>
       ${unpriced.length?`<div class="warn">No live price for <b>${unpriced.map(esc).join(', ')}</b> —
@@ -475,14 +509,20 @@ function render(){
           constituents go stale then and must be re-captured.`:''}
       </div>`:''}
       <table><thead><tr><th>Stock</th><th class="r">Shares</th><th class="r">Avg buy</th>
-        <th class="r">Price now</th><th class="r">Value</th><th class="r">Return</th>
+        <th class="r">Price now</th><th class="r">Invested</th><th class="r">Value</th>
+        <th class="r">P&amp;L</th><th class="r">Return</th>
         <th class="r">Weight</th></tr></thead><tbody>
       ${rows.map(r=>{
-        const ret=r.val!=null?(r.px/r.avg-1)*100:null, w=r.val!=null&&val?r.val/val*100:0;
+        // No cost basis => no P&L and no return. Both would be measured against nothing.
+        const pnl=(r.val!=null&&!r.noCost)?r.val-r.cost:null;
+        const ret=pnl!=null?(r.px/r.avg-1)*100:null, w=r.val!=null&&val?r.val/val*100:0;
         return `<tr><td class="sym">${esc(r.s)}${dual.includes(r.s)?'<span class="dual">in 2+ baskets</span>':''}</td>
-          <td class="r mono">${r.q}</td><td class="r mono">${r.avg.toFixed(2)}</td>
+          <td class="r mono">${r.q}</td>
+          <td class="r mono">${r.noCost?'—':r.avg.toFixed(2)}</td>
           <td class="r mono">${r.px!=null?r.px.toFixed(2):'—'}</td>
+          <td class="r mono">${r.noCost?'—':M(r.cost)}</td>
           <td class="r mono">${r.val!=null?M(r.val):'—'}</td>
+          <td class="r mono ${pnl!=null?cls(pnl):''}">${pnl!=null?sgn(pnl)+M(Math.abs(pnl)):'—'}</td>
           <td class="r mono ${ret!=null?cls(ret):''}">${ret!=null?sgn(ret)+Math.abs(ret).toFixed(2)+'%':'—'}</td>
           <td class="r mono">${r.val!=null?w.toFixed(2)+'%':'—'}
             ${r.val!=null?`<div class="wbar"><i style="width:${Math.min(100,w*3).toFixed(1)}%"></i></div>`:''}</td>
@@ -518,6 +558,27 @@ function render(){
       these are counted in both — correct per basket, but your real exposure to them is the sum, and
       rebalancing one basket cannot see the other half.</div>`:''}
     </div>
+    ${TB?`<div class="sells" style="margin-top:14px">
+      <b>From your tradebooks</b> — ${Object.keys(TRADES).length} trades,
+      ${TB.matched.length} lots matched FIFO. Realised <b>${sgn(TBSUM.all)}${M(Math.abs(TBSUM.all))}</b>
+      in total, of which only <b>${sgn(TBSUM.baskets)}${M(Math.abs(TBSUM.baskets))}</b> belongs to the
+      baskets above.
+      <table style="margin-top:8px"><thead><tr><th>Where</th><th class="r">Realised</th>
+        <th>Why it is not in a basket</th></tr></thead><tbody>
+      ${TBSUM.unknown?`<tr><td class="sym">Closed positions</td>
+        <td class="r mono ${cls(TBSUM.unknown)}">${sgn(TBSUM.unknown)}${M(Math.abs(TBSUM.unknown))}</td>
+        <td>never in any basket you recorded — sold before these baskets existed</td></tr>`:''}
+      ${TBSUM.ambiguous?`<tr><td class="sym">Unattributable</td>
+        <td class="r mono ${cls(TBSUM.ambiguous)}">${sgn(TBSUM.ambiguous)}${M(Math.abs(TBSUM.ambiguous))}</td>
+        <td>the symbol was held through two or more baskets, so nothing can say which one sold</td></tr>`:''}
+      ${TB.uncosted.length?`<tr><td class="sym">Not costable</td><td class="r mono">—</td>
+        <td><b>${M(TB.uncosted.reduce((a,x)=>a+x.proceeds,0))}</b> of proceeds across
+        ${TB.uncosted.length} sales whose purchase is in no export — excluded entirely rather than
+        counted as profit</td></tr>`:''}
+      </tbody></table>
+      All figures <b>gross</b>: brokerage, STT, stamp duty and GST are in no tradebook. Console's P&amp;L
+      report gives the net number; this gives the basket split, which that report cannot.
+    </div>`:''}
     ${gRealised&&gUn!=null?`<div class="sells" style="margin-top:14px">
       <b>Total return so far:</b> <span class="mono">${sgn(gUn)}${M(Math.abs(gUn))}</span> unrealised
       ${sgn(gRealised)} <span class="mono">${M(Math.abs(gRealised))}</span> realised =
@@ -568,16 +629,128 @@ async function load(text,opts){
   render();
 }
 
+// ---------------------------------------------------------------- tradebooks
+// A direct port of attribute_sells.py. It is a SECOND implementation of money logic, which is a
+// risk, so it is held to the Python one: both must produce identical figures on the same exports.
+// See TRADEBOOK_PARITY in the repo notes.
+const TB_COLS=['Symbol','Trade Date','Trade Type','Quantity','Price','Trade ID'];
+let TRADES={};                                  // Trade ID -> trade. Dedupes across exports.
+
+function tbParse(buf,name){
+  const wb=XLSX.read(buf,{type:'array',cellDates:true});
+  const ws=wb.Sheets['Equity']||wb.Sheets[wb.SheetNames[0]];
+  const grid=XLSX.utils.sheet_to_json(ws,{header:1,blankrows:false,raw:true});
+  // Zerodha pads the top of the sheet with account details, so find the header row rather than
+  // assuming a row number - it has moved between exports before.
+  const hdr=grid.findIndex(r=>Array.isArray(r)&&r.some(c=>String(c).trim()==='Symbol'));
+  if(hdr<0) throw new Error(name+': no "Symbol" header row — is this a Zerodha tradebook?');
+  const H=grid[hdr].map(c=>String(c==null?'':c).trim());
+  const miss=TB_COLS.filter(c=>!H.includes(c));
+  if(miss.length) throw new Error(name+': missing column(s) '+miss.join(', '));
+  const ix={}; TB_COLS.forEach(c=>ix[c]=H.indexOf(c));
+  const d=v=>v instanceof Date
+    ? v.getFullYear()+'-'+String(v.getMonth()+1).padStart(2,'0')+'-'+String(v.getDate()).padStart(2,'0')
+    : String(v).slice(0,10);
+  let n=0;
+  for(let i=hdr+1;i<grid.length;i++){
+    const r=grid[i]; if(!r||!r[ix['Symbol']]) continue;
+    const id=r[ix['Trade ID']];
+    if(TRADES[id]!=null) continue;              // same trade in an overlapping export
+    TRADES[id]={s:tbBase(r[ix['Symbol']]), d:d(r[ix['Trade Date']]),
+                t:String(r[ix['Trade Type']]).trim().toLowerCase(),
+                q:+r[ix['Quantity']], p:+r[ix['Price']], id:String(id)};
+    n++;
+  }
+  return n;
+}
+const tbBase=x=>String(x).toUpperCase().replace(/-(BE|BZ|BL)$/,'');
+
+// FIFO. A sell with no matching buy in the data has NO knowable cost, so it is reported separately
+// rather than counted as pure profit - the single most dangerous shortcut available here.
+function tbRealised(){
+  // Tiebreak on Trade ID, the exchange's own sequence. Without it same-day trades keep file-read
+  // order, which is user-selection order here and alphabetical in Python - so the two disagreed on
+  // how one sell's shares split across lots. Same money, different rows; deterministic now.
+  const trades=Object.values(TRADES).sort((a,b)=>
+    a.d<b.d?-1:a.d>b.d?1:
+    a.t!==b.t?(a.t==='buy'?-1:1):
+    String(a.id).localeCompare(String(b.id)));
+  const lots={}, matched=[], uncosted=[];
+  for(const tr of trades){
+    if(tr.t==='buy'){ (lots[tr.s]=lots[tr.s]||[]).push([tr.q,tr.p]); continue; }
+    let left=tr.q, L=lots[tr.s]||[];
+    while(left>0&&L.length){
+      const lot=L[0], take=Math.min(left,lot[0]);
+      matched.push({s:tr.s,d:tr.d,q:take,pnl:take*(tr.p-lot[1]),proceeds:take*tr.p});
+      lot[0]-=take; left-=take; if(lot[0]<=0) L.shift();
+    }
+    if(left>0) uncosted.push({s:tr.s,d:tr.d,q:left,proceeds:left*tr.p});
+  }
+  return {trades,matched,uncosted};
+}
+
+// Attribution by symbol. Uses ever_held, not the current holdings, so a constituent the basket has
+// since EXITED is still credited to it - otherwise a rebalance's realised loss vanishes.
+function tbAttribute(matched){
+  const owners={};
+  Object.values(META).forEach(b=>{
+    const tag=b.tag||'';
+    (b.ever_held||Object.keys(b.holdings||{})).forEach(x=>{
+      const k=tbBase(x); (owners[k]=owners[k]||new Set()).add(tag); });
+  });
+  const out={};
+  for(const m of matched){
+    const o=owners[m.s];
+    const key=!o?'__unknown__':(o.size===1?[...o][0]:'__ambiguous__');
+    const b=out[key]=out[key]||{pnl:0,proceeds:0,syms:{}};
+    b.pnl+=m.pnl; b.proceeds+=m.proceeds; b.syms[m.s]=(b.syms[m.s]||0)+m.pnl;
+  }
+  return out;
+}
+
 // A plain visit should show your baskets, not an empty drop zone.
 addEventListener('DOMContentLoaded',()=>{
+  loadTrades();
   const sv=loadSaved();
   if(sv&&sv.text) load(sv.text,{restored:true,at:sv.at});
 });
 
 const drop=$('drop'), fin=$('fin');
-fin.onchange=e=>{ const f=e.target.files[0]; if(!f) return;
-  const fr=new FileReader(); fr.onload=()=>load(fr.result); fr.readAsText(f); };
+
+// Several files at once, of two kinds. Tradebooks are accumulated (dedupe on Trade ID needs them
+// together); a map JSON replaces whatever map is loaded.
+async function accept(list){
+  const files=[...list]; if(!files.length) return;
+  const books=files.filter(f=>/\.xlsx?$/i.test(f.name));
+  const maps =files.filter(f=>!/\.xlsx?$/i.test(f.name));
+  let added=0, errs=[];
+  for(const f of books){
+    try{ added+=tbParse(new Uint8Array(await f.arrayBuffer()),f.name); }
+    catch(e){ errs.push(e.message); }
+  }
+  if(books.length){
+    const n=Object.keys(TRADES).length;
+    saveTrades();
+    say(`${books.length} tradebook${books.length>1?'s':''} read · ${added} new trade${added===1?'':'s'},`
+      +` ${n} unique in total${errs.length?' · '+errs.map(esc).join('; '):''}`, errs.length?'warn':'ok');
+  }
+  if(maps.length){
+    const text=await maps[0].text();
+    return load(text);
+  }
+  if(!books.length&&!maps.length){
+    say('Nothing usable in that selection — expecting a .json batch map or .xlsx tradebooks.','warn');
+    return;
+  }
+  if(books.length&&GROUPS) render();          // re-render so realised appears immediately
+  else if(books.length) say('Tradebooks loaded. Now drop your batch map JSON to see them by basket.','ok');
+}
+fin.onchange=e=>{
+  const files=e.target.files;
+  // Clear the input AFTER reading the list: picking the same file twice leaves value unchanged, so
+  // no change event fires and the click appears to do nothing at all. Reset makes every pick fresh.
+  accept(files).finally(()=>{ try{ fin.value=''; }catch(_){} });
+};
 drop.ondragover=e=>{e.preventDefault();};
-drop.ondrop=e=>{e.preventDefault(); const f=e.dataTransfer.files[0]; if(!f) return;
-  const fr=new FileReader(); fr.onload=()=>load(fr.result); fr.readAsText(f); };
+drop.ondrop=e=>{e.preventDefault(); accept(e.dataTransfer.files);};
 </script></body></html>
