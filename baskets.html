@@ -105,17 +105,25 @@ color:var(--tx2)}
 border:1px solid var(--hair2);border-radius:var(--radius-sm);padding:6px 10px;min-width:15em}
 .rename input:focus{outline:none;border-color:var(--em);box-shadow:0 0 0 3px rgba(21,90,120,.16)}
 .bsum .bn{color:var(--tx3)}
-.bfig{margin-left:auto;font-size:16px;font-weight:500}
-/* rupees and percent both right-aligned in fixed columns so the five rows line up as a ledger */
+/* cost, then value, then the gain: what went in on the left of the arrow, what it is worth on the
+   right. The arrow is what makes two bare rupee figures unambiguous without spending width on labels.
+   The three are one non-wrapping unit: on a phone the flex row wrapped between the arrow and the value,
+   leaving an arrow at the end of a line pointing at nothing. An arrow only reads as "becomes" while it
+   is adjacent to BOTH figures, so it must break before or after the trio, never inside it. */
+.bmoney{margin-left:auto;display:inline-flex;align-items:baseline;gap:12px;white-space:nowrap}
+.bcost{font-size:14px;color:var(--tx3);min-width:7.4em;text-align:right}
+.barrow{font-size:12px;color:var(--tx3)}
+.bfig{font-size:16px;font-weight:500;min-width:7em;text-align:right}
+/* every money column right-aligned at a fixed width so the five rows line up as a ledger */
 .bpnl{font-size:14px;font-weight:500;min-width:6.6em;text-align:right}
 .bpct{font-size:14px;font-weight:600;min-width:5.2em;text-align:right}
 .bflag{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;
 border-radius:50%;background:var(--em);color:#fff;font-family:var(--num);font-size:11px;font-weight:700}
 .bflag.warnflag{background:var(--gold)}
 h2 button.sm{margin-left:0}
-@media(max-width:620px){.bfig{margin-left:0}.bsum{gap:8px}
-  /* on a phone the three numbers wrap; drop the fixed widths so they pack instead of stretching */
-  .bpnl,.bpct{min-width:0}}
+@media(max-width:620px){.bmoney{margin-left:0;gap:8px}.bsum{gap:8px}
+  /* on a phone the four numbers wrap; drop the fixed widths so they pack instead of stretching */
+  .bcost,.bfig,.bpnl,.bpct{min-width:0}}
 button.sm{min-height:28px;padding:4px 11px;font-size:11.5px;margin-left:auto}
 table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13.5px}
 th{font-family:var(--num);font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--tx3);
@@ -454,7 +462,10 @@ function render(){
             :'Recorded by Kite against the order at placement.'}"
           >${tag===UNTAGGED?'no tag':esc(tag)}${G.src==='internal'?' <b>· internal</b>':''}</span>
         <span class="note bn" style="margin:0;font-style:normal">${rows.length} stocks</span>${flag}
-        <span class="bfig mono" title="Current value">${M(val)}</span>
+        <span class="bmoney"><span class="bcost mono" title="Invested — what you paid. Same figure as
+the Invested card inside, from the same variable, so the open and closed views cannot drift apart."
+          >${cost?M(cost):'—'}</span><span class="barrow" aria-hidden="true">→</span><span
+          class="bfig mono" title="Current value">${M(val)}</span></span>
         <span class="bpnl mono ${unreal!=null?cls(unreal):''}" title="Unrealised, in rupees">${
           unreal!=null?sgn(unreal)+M(Math.abs(unreal)):'—'}</span>
         <span class="bpct mono ${unreal!=null?cls(unreal):''}" title="Unrealised, as a percentage of cost">${
