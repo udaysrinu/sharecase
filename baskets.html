@@ -222,7 +222,9 @@ const nameFor=(tag,label)=>names()[tag] || label
 // demanding the same JSON every time. It is your own position data: it never leaves the device,
 // there is no server to send it to, and "Forget" below removes it. Stored as the raw text so a
 // future change to normalise() re-reads the original rather than a stale parse of it.
-const DATAKEY='sc_basket_data', TRADEKEY='sc_trades';
+// TRADEKEY is versioned on purpose - see saveTrades below. v1 ('sc_trades') held records with no
+// exchange field and is unreadable without producing duplicates, so it is abandoned, not migrated.
+const DATAKEY='sc_basket_data', TRADEKEY='sc_trades_v2';
 const saveData=text=>{ try{ localStorage.setItem(DATAKEY,JSON.stringify(
   {text, at:new Date().toISOString()})); }catch(e){} };   // quota: a big map can exceed 5 MB
 const loadSaved=()=>{ try{ return JSON.parse(localStorage.getItem(DATAKEY)||'null'); }
@@ -233,20 +235,30 @@ const loadSaved=()=>{ try{ return JSON.parse(localStorage.getItem(DATAKEY)||'nul
 // second write erased the first tab's buys - which then resurface as plausible "Not costable"
 // proceeds. Keys are (date, exchange, id), so both sides hold the same trade for a given key and the
 // merge direction does not matter.
-// Anything read back out of storage is rekeyed first. An older build keyed trades on Trade ID alone;
-// restoring those beside freshly parsed (date, exchange, id) keys put every trade in TRADES TWICE and
-// doubled realised P&L - measured in a browser, every bucket exactly 2x, not hypothetical. Silent too:
-// no error, all rows priced. The stored value carries d/x/id, so rekey rather than discard and nobody has to
-// re-pick six xlsx files. Deriving the key from the value also makes the merge idempotent.
-const rekey=o=>{ const out={};
-  for(const k in o){ const t=o[k];
-    out[(t&&t.d&&t.x&&t.id!=null) ? t.d+'|'+t.x+'|'+t.id : k]=t; }
-  return out; };
+// STORAGE IS VERSIONED, and the version is in TRADEKEY above. An earlier build keyed trades on Trade
+// ID alone and carried no exchange on the value. A migration that rekeyed on read looked correct and
+// was NOT: its guard needed t.x, the old records had none, so those entries kept their bare keys and
+// sat alongside their own composite twins. Measured in a real browser: 1,237 trades where the files
+// hold 814, one GRSE buy present SIXTEEN times, and realised P&L inflated from 1,74,599 to 2,87,412.
+// Every symptom was silent - no error, all rows priced, a plausible number on screen.
+// So: do not migrate corrupt state, discard it. Bumping the version orphans the bad blob and the next
+// upload rebuilds cleanly. The cost is that realised reads "-" until the tradebooks are re-picked once,
+// which is honest; the alternative was a two-pass reconciliation over data already known to be wrong.
 const saveTrades=()=>{ try{
-  TRADES=Object.assign(rekey(JSON.parse(localStorage.getItem(TRADEKEY)||'{}')),TRADES);
-  localStorage.setItem(TRADEKEY,JSON.stringify(TRADES)); }catch(e){} };
-const loadTrades=()=>{ try{ TRADES=rekey(JSON.parse(localStorage.getItem(TRADEKEY)||'{}')); }
+  TRADES=Object.assign(JSON.parse(localStorage.getItem(TRADEKEY)||'{}'),TRADES);
+  localStorage.setItem(TRADEKEY,JSON.stringify(TRADES));
+  localStorage.removeItem('sc_trades');       // the pre-v2 blob, permanently unsafe to read
+}catch(e){} };
+const loadTrades=()=>{ try{ TRADES=JSON.parse(localStorage.getItem(TRADEKEY)||'{}'); }
   catch(e){ TRADES={}; } };
+// A duplicate cannot be spotted by counting keys - the whole failure was two KEYS for one trade. Count
+// distinct trade SIGNATURES instead, and say so on screen rather than only in a console nobody opens.
+const dupeWarning=()=>{
+  const sig=t=>`${t.s}|${t.d}|${t.t}|${t.q}|${t.p}|${t.id}`;
+  const n=Object.keys(TRADES).length, u=new Set(Object.values(TRADES).map(sig)).size;
+  return n===u ? '' : `<div class="warn"><b>${n-u} duplicate trade${n-u>1?'s':''} in storage.</b>
+    ${n} entries describe only ${u} distinct trades, so every realised figure below is overstated.
+    Press <b>Forget this data</b> and re-pick your tradebooks.</div>`; };
 function forget(){
   // The tags, and the names you gave them, are position metadata too - so Forget removes all three.
   try{ [DATAKEY,NAMEKEY,OPENKEY,TRADEKEY].forEach(k=>localStorage.removeItem(k)); }catch(e){}
@@ -388,7 +400,8 @@ function render(){
     all:       Object.values(TB_ALL).reduce((a,b)=>a+b.pnl,0),
     baskets:   Object.values(TB_BY_TAG).reduce((a,b)=>a+b.pnl,0),
     unknown:   (TB_ALL['__unknown__']||{pnl:0}).pnl,
-    ambiguous: (TB_ALL['__ambiguous__']||{pnl:0}).pnl };
+    ambiguous: (TB_ALL['__ambiguous__']||{pnl:0}).pnl,
+    prebasket: (TB_ALL['__prebasket__']||{pnl:0}).pnl };
   for(const [tag,G] of Object.entries(GROUPS)){
     const rows=Object.entries(G.pos).map(([s,p])=>{
       const px=PX[s];
@@ -604,6 +617,7 @@ the Invested card inside, from the same variable, so the open and closed views c
       these are counted in both — correct per basket, but your real exposure to them is the sum, and
       rebalancing one basket cannot see the other half.</div>`:''}
     </div>
+    ${TB?dupeWarning():''}
     ${TB?`<div class="sells" style="margin-top:14px">
       <b>From your tradebooks</b> — ${Object.keys(TRADES).length} trades,
       ${TB.matched.length} lots matched FIFO. Realised <b>${sgn(TBSUM.all)}${M(Math.abs(TBSUM.all))}</b>
@@ -614,9 +628,17 @@ the Invested card inside, from the same variable, so the open and closed views c
       ${TBSUM.unknown?`<tr><td class="sym">Closed positions</td>
         <td class="r mono ${cls(TBSUM.unknown)}">${sgn(TBSUM.unknown)}${M(Math.abs(TBSUM.unknown))}</td>
         <td>never in any basket you recorded — sold before these baskets existed</td></tr>`:''}
+      ${TBSUM.prebasket?`<tr><td class="sym">Before the basket</td>
+        <td class="r mono ${cls(TBSUM.prebasket)}">${sgn(TBSUM.prebasket)}${M(Math.abs(TBSUM.prebasket))}</td>
+        <td>your own trading in these symbols <b>before</b> the basket that now holds them was
+        created — the same stock, but not the basket's result</td></tr>`:''}
       ${TBSUM.ambiguous?`<tr><td class="sym">Unattributable</td>
         <td class="r mono ${cls(TBSUM.ambiguous)}">${sgn(TBSUM.ambiguous)}${M(Math.abs(TBSUM.ambiguous))}</td>
         <td>the symbol was held through two or more baskets, so nothing can say which one sold</td></tr>`:''}
+      ${TB_UNDATEABLE.length?`<tr><td class="sym">Not date-gated</td><td class="r mono">—</td>
+        <td><b>${TB_UNDATEABLE.map(esc).join(', ')}</b> record no start date (<span class="mono">executed</span>
+        is prose, not a date), so their sales cannot be split into before/after and may still include
+        pre-basket trading</td></tr>`:''}
       ${TB.uncosted.length?`<tr><td class="sym">Not costable</td><td class="r mono">—</td>
         <td><b>${M(TB.uncosted.reduce((a,x)=>a+x.proceeds,0))}</b> of proceeds across
         ${TB.uncosted.length} sales whose purchase is in no export — excluded entirely rather than
@@ -750,23 +772,41 @@ function tbRealised(){
 
 // Attribution by symbol. Uses ever_held, not the current holdings, so a constituent the basket has
 // since EXITED is still credited to it - otherwise a rebalance's realised loss vanishes.
+// A basket is defined by symbols AND BY TIME. Owning APOLLO in a basket created on 17 Aug says nothing
+// about 370 APOLLO you sold in April. Attributing on the symbol alone swept 17,095 of pre-basket personal
+// trading into DEFENCE and turned its real 8,915 LOSS into a phantom 8,180 gain - caught only because the
+// account holder remembered booking that loss. So each batch declares when it began, and sales before
+// that date are held back as `__prebasket__` rather than credited to a basket that did not exist.
+// startOf() reads the leading YYYY-MM-DD of `executed`. Batches whose executed is prose - INFRA and
+// SELFMGD both say "various (pre-tagging)" - have NO knowable start, so they cannot be date-gated and
+// are marked undateable instead of being given an invented cutoff.
+const startOf=b=>{ const m=/^(\d{4}-\d{2}-\d{2})/.exec(String(b&&b.executed||'')); return m?m[1]:null; };
 function tbAttribute(matched){
-  const owners={};
+  const owners={}, start={}, undateable=new Set();
   // b.tag||key is normalise()'s own key function - same grouping, no batch lost.
   Object.entries(BATCHES).forEach(([key,b])=>{
-    const tag=b.tag||key;
+    const tag=b.tag||key, s=startOf(b);
+    if(s===null) undateable.add(tag);
+    // two batches sharing a tag: the basket began at the EARLIER of them
+    else if(!(tag in start) || s<start[tag]) start[tag]=s;
     (b.ever_held||Object.keys(b.holdings||{})).forEach(x=>{
       const k=tbBase(x); (owners[k]=owners[k]||new Set()).add(tag); });
   });
   const out={};
   for(const m of matched){
     const o=owners[m.s];
-    const key=!o?'__unknown__':(o.size===1?[...o][0]:'__ambiguous__');
+    let key=!o?'__unknown__':(o.size===1?[...o][0]:'__ambiguous__');
+    // a dateable basket cannot own a sale that predates it
+    if(o && o.size===1 && !undateable.has(key) && start[key] && m.d < start[key]) key='__prebasket__';
     const b=out[key]=out[key]||{pnl:0,proceeds:0,syms:{}};
     b.pnl+=m.pnl; b.proceeds+=m.proceeds; b.syms[m.s]=(b.syms[m.s]||0)+m.pnl;
   }
+  // NOT returned inside `out` - every caller sums Object.values(out).map(b=>b.pnl), and an array
+  // there would make that NaN. Module-level instead.
+  TB_UNDATEABLE=[...undateable];
   return out;
 }
+let TB_UNDATEABLE=[];
 
 // A plain visit should show your baskets, not an empty drop zone.
 addEventListener('DOMContentLoaded',()=>{
