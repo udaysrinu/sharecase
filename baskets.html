@@ -197,7 +197,24 @@ realised returns and XIRR need a tradebook; dividends are not exposed by Kite's 
 
 <script>
 const $=id=>document.getElementById(id);
-const M=v=>'₹'+Math.round(v).toLocaleString('en-IN');
+// PRIVACY MODE. Every rupee figure on the page already passes through M(), so masking there covers
+// all 45 call sites at once - totals, per-basket, per-stock, the sells ledger and the tradebook box.
+// Quantities have to go too, and that is the non-obvious part: a share count multiplied by a price
+// anyone can look up reconstructs the position exactly, so hiding rupees while showing "MVELECTRO 72"
+// hides nothing. Percentages are safe - they carry no scale.
+// Deliberately NOT hidden: the average buy price. It is recoverable from the live price and the
+// return percentage (avg = px / (1 + ret)), both of which are the whole point of the mode, so masking
+// it would be theatre. Same for stock names and holding counts, which reveal what you own, not how much.
+let PRIVATE=false;
+try{ PRIVATE=localStorage.getItem('sc_private')==='1'; }catch(e){}
+const M=v=>PRIVATE?'₹•••':'₹'+Math.round(v).toLocaleString('en-IN');
+const Q=v=>PRIVATE?'•••':String(v);
+function togglePrivate(){
+  PRIVATE=!PRIVATE;
+  try{ localStorage.setItem('sc_private',PRIVATE?'1':'0'); }catch(e){}
+  if(GROUPS) render();
+  const b=$('privbtn'); if(b) b.textContent=PRIVATE?'Show amounts':'Hide amounts';
+}
 const cls=v=>v>=0?'pos':'neg';
 const sgn=v=>v>=0?'+':'−';
 const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
@@ -547,7 +564,7 @@ the Invested card inside, from the same variable, so the open and closed views c
         <table style="margin-top:8px"><thead><tr><th>Stock</th><th class="r">Shares</th>
           <th class="r">Price</th><th class="r">Proceeds</th><th class="r">Realised</th>
           <th>When</th></tr></thead><tbody>
-        ${sells.map(x=>`<tr><td class="sym">${esc(x.s||'?')}</td><td class="r mono">${+x.q}</td>
+        ${sells.map(x=>`<tr><td class="sym">${esc(x.s||'?')}</td><td class="r mono">${Q(+x.q)}</td>
           <td class="r mono">${num(x.price)}</td><td class="r mono">${M(+x.proceeds||0)}</td>
           <td class="r mono ${cls(+x.realised_gross||0)}">${sgn(+x.realised_gross||0)}${M(Math.abs(+x.realised_gross||0))}</td>
           <td class="mono" style="font-size:12px">${esc(x.date||'—')}</td></tr>`).join('')}
@@ -576,7 +593,7 @@ the Invested card inside, from the same variable, so the open and closed views c
         const pnl=(r.val!=null&&!r.noCost)?r.val-r.cost:null;
         const ret=pnl!=null?(r.px/r.avg-1)*100:null, w=r.val!=null&&val?r.val/val*100:0;
         return `<tr><td class="sym">${esc(r.s)}${dual.includes(r.s)?'<span class="dual">in 2+ baskets</span>':''}</td>
-          <td class="r mono">${r.q}</td>
+          <td class="r mono">${Q(r.q)}</td>
           <td class="r mono">${r.noCost?'—':r.avg.toFixed(2)}</td>
           <td class="r mono">${r.px!=null?r.px.toFixed(2):'—'}</td>
           <td class="r mono">${r.noCost?'—':M(r.cost)}</td>
@@ -661,6 +678,9 @@ the Invested card inside, from the same variable, so the open and closed views c
     <h2>By basket
       <button class="sm" style="margin:0" onclick="allBaskets(true)">Expand all</button>
       <button class="sm" style="margin:0" onclick="allBaskets(false)">Collapse all</button>
+      <button class="sm" id="privbtn" style="margin:0" onclick="togglePrivate()"
+        title="Hide every rupee amount and share count, keep the percentages. For screenshots."
+        >${PRIVATE?'Show amounts':'Hide amounts'}</button>
     </h2>`+html;
 
   // names are editable and persist per tag
