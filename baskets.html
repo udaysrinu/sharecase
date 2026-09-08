@@ -524,10 +524,38 @@ the Invested card inside, from the same variable, so the open and closed views c
         <div class="c"><div class="k">Realised</div>
           <div class="v mono ${(tb||sells.length)?cls(realised):''}" ${(tb||sells.length)?'':'style="color:var(--tx3)"'}>${
             (tb||sells.length)?sgn(realised)+M(Math.abs(realised)):'—'}</div>
-          <div class="s">${(tb||sells.length)
-            ?realSrc+', gross of charges'
-            :'no sales recorded'}</div></div>
+          <div class="s ${(tb&&tb.cost)?cls(realised):''}">${
+            tb&&tb.cost ? sgn(realised)+Math.abs(realised/tb.cost*100).toFixed(1)+'% on what was sold'
+            : (tb||sells.length) ? realSrc+', gross of charges' : 'no sales recorded'}</div></div>
       </div>
+      ${(()=>{
+        // TOTAL RETURN. In rupees the two simply add. As a PERCENTAGE they cannot share the
+        // unrealised denominator - realised was earned on capital that has already come back, and
+        // dividing it by the cost of what is still held would be a different quantity entirely.
+        // The one honest denominator is every rupee the basket ever put to work:
+        //     cost of the shares sold  +  cost of the shares still held
+        // It is deliberately NOT time-weighted. Capital returned in April counts the same as capital
+        // still deployed today, so a basket that made 5% in a week reads like one that took a year.
+        // XIRR is what fixes that and it is not computable here: building a per-basket cash-flow
+        // series needs to know which basket each BUY belonged to, and a tradebook carries no tag.
+        if(unreal==null) return '';
+        const rz = tb ? realised : 0, cs = tb&&tb.cost ? tb.cost : 0;
+        if(!cs) return '';                       // nothing sold: total return IS the current return
+        const totR = unreal + rz, cap = cost + cs;
+        const soft = TB_UNDATEABLE.indexOf(tag)>=0;
+        return `<div class="perf perf2" style="border-bottom:none;padding-bottom:0">
+          <div class="c"><div class="k">Current return</div>
+            <div class="v mono ${cls(unreal)}">${sgn(unreal)}${Math.abs(unreal/costPriced*100).toFixed(2)}%</div>
+            <div class="s">${sgn(unreal)}${M(Math.abs(unreal))} on what you still hold</div></div>
+          <div class="c"><div class="k">Total return</div>
+            <div class="v mono ${cls(totR)}">${sgn(totR)}${Math.abs(totR/cap*100).toFixed(2)}%</div>
+            <div class="s">${sgn(totR)}${M(Math.abs(totR))} on ${M(cap)} ever deployed${
+              soft?' · <b>see caveat</b>':''}</div></div>
+        </div>
+        ${soft?`<div class="warn" style="margin-top:10px">This basket records no start date, so its
+          realised figure may include your own trading in these symbols <b>before the basket existed</b>.
+          Its total return is therefore softer than the others on this page.</div>`:''}`;
+      })()}
       ${unpriced.length?`<div class="warn">No live price for <b>${unpriced.map(esc).join(', ')}</b> —
         excluded from Current value and Unrealised. Invested still counts it, because what you paid
         needs no price, so <b>Value minus Invested will not equal Unrealised</b> while this shows.</div>`:''}
@@ -782,7 +810,7 @@ function tbRealised(){
     let left=tr.q, L=lots[tr.s]||[];
     while(left>0&&L.length){
       const lot=L[0], take=Math.min(left,lot[0]);
-      matched.push({s:tr.s,d:tr.d,q:take,pnl:take*(tr.p-lot[1]),proceeds:take*tr.p});
+      matched.push({s:tr.s,d:tr.d,q:take,pnl:take*(tr.p-lot[1]),proceeds:take*tr.p,cost:take*lot[1]});
       lot[0]-=take; left-=take; if(lot[0]<=0) L.shift();
     }
     if(left>0) uncosted.push({s:tr.s,d:tr.d,q:left,proceeds:left*tr.p});
@@ -818,8 +846,8 @@ function tbAttribute(matched){
     let key=!o?'__unknown__':(o.size===1?[...o][0]:'__ambiguous__');
     // a dateable basket cannot own a sale that predates it
     if(o && o.size===1 && !undateable.has(key) && start[key] && m.d < start[key]) key='__prebasket__';
-    const b=out[key]=out[key]||{pnl:0,proceeds:0,syms:{}};
-    b.pnl+=m.pnl; b.proceeds+=m.proceeds; b.syms[m.s]=(b.syms[m.s]||0)+m.pnl;
+    const b=out[key]=out[key]||{pnl:0,proceeds:0,cost:0,syms:{}};
+    b.pnl+=m.pnl; b.proceeds+=m.proceeds; b.cost+=m.cost; b.syms[m.s]=(b.syms[m.s]||0)+m.pnl;
   }
   // NOT returned inside `out` - every caller sums Object.values(out).map(b=>b.pnl), and an array
   // there would make that NaN. Module-level instead.
