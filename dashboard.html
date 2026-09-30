@@ -538,19 +538,35 @@ function parseRows(rows){
 }
 // A dropped .json is one of two things, told apart by shape rather than by filename:
 // an array of holdings rows, or a whole prebuilt live.json. Both are useful; neither is a tradebook.
+// Fill what a minimal file may omit, so a hand-written or script-generated holdings file works.
+function normRows(arr){
+  return arr.filter(h=>h&&h.s&&h.q>0).map(h=>{
+    const avg=+h.avg||0, ltp=(h.ltp==null?avg:+h.ltp)||0;
+    return {s:h.s,q:+h.q,avg,ltp,pnl:h.pnl==null?Math.round((ltp-avg)*+h.q):+h.pnl,
+            grp:h.grp||grpOf(h.s),day:+h.day||0,sl:h.sl==null?null:+h.sl,dpnl:+h.dpnl||0};});
+}
 function parseJSON(txt){
   let j; try{ j=JSON.parse(txt); }catch(e){ throw new Error('Not valid JSON: '+e.message); }
   if(Array.isArray(j)){
-    const ok=j.filter(h=>h&&h.s&&h.q>0);
-    if(!ok.length) throw new Error('This JSON array has no holdings rows. Each needs at least '+
+    const rows=normRows(j);
+    if(!rows.length) throw new Error('This JSON array has no holdings rows. Each needs at least '+
       '"s" (symbol) and "q" (quantity), like samples/sample_holdings.json.');
-    // Fill what a minimal file may omit, so a hand-written holdings file works.
-    return {kind:'holdings',rows:ok.map(h=>{
-      const avg=+h.avg||0, ltp=(h.ltp==null?avg:+h.ltp)||0;
-      return {s:h.s,q:+h.q,avg,ltp,pnl:h.pnl==null?Math.round((ltp-avg)*+h.q):+h.pnl,
-              grp:h.grp||grpOf(h.s),day:+h.day||0,sl:h.sl==null?null:+h.sl,dpnl:+h.dpnl||0};})};
+    return {kind:'holdings',rows};
   }
-  if(j&&Array.isArray(j.holdings)) return {kind:'live',data:j};
+  if(j&&Array.isArray(j.holdings)){
+    // An object with a "holdings" array is NOT necessarily a prebuilt dataset. render() needs the
+    // fields buildData() computes - attention, cumcurve, combined, cum_realized - and reads
+    // d.attention.length with no guard, so handing it a raw holdings container throws
+    // "Cannot read properties of undefined" at the FIRST tab and blanks the whole page. Worse, in
+    // load() that throw lands in the same .catch as a network failure and is reported as
+    // "no live.json", which sends you looking for a missing file that is being served fine.
+    // So: treat it as prebuilt only if it actually carries the computed fields.
+    if(j.attention && j.cumcurve) return {kind:'live',data:j};
+    const rows=normRows(j.holdings);
+    if(!rows.length) throw new Error('This file has a "holdings" array but no usable rows. '+
+      'Each needs at least "s" (symbol) and "q" (quantity).');
+    return {kind:'holdings',rows};
+  }
   throw new Error('JSON must be an array of holdings rows, or a live.json object with a '+
     '"holdings" array.');
 }
@@ -827,10 +843,30 @@ function handleFile(file){
     upState('err','✗ '+escU(err.message));});
 }
 
-function load(){fetch('live.json?t='+Date.now()).then(r=>r.json()).then(d=>{
+function load(){fetch('live.json?t='+Date.now()).then(r=>{
+    if(!r.ok) throw new Error('HTTP '+r.status);       // a 404 is the normal no-file case
+    return r.text();
+  }).then(txt=>{
     if(uploaded)return;
-    if(d._trades===undefined)d._trades=d._trades||[];liveOk=true;render(d);renderNeverSold(d);renderUpbar();
-  }).catch(()=>{
+    // Route it through the SAME parser an upload uses, so a raw holdings file gets buildData()
+    // applied instead of being passed to render() half-formed. Previously this branch assumed
+    // live.json was already a prebuilt dataset; every simple holdings file crashed render() and was
+    // reported as a missing file.
+    const r=parseJSON(txt);
+    // A live.json may carry its own `_trades` (one row per trade: sym/date/type/qty/price). Prefer
+    // them over whatever is already loaded, so realised P&L appears without a separate upload.
+    let raw; try{ raw=JSON.parse(txt); }catch(_){ raw={}; }
+    const fileTrades = Array.isArray(raw._trades)&&raw._trades.length ? raw._trades : null;
+    const d = r.kind==='live' ? r.data
+            : buildData(fileTrades || (DATA&&DATA._trades) || [], r.rows, 0,
+                        // The FILE's date, not the browser clock. Stamping new Date() on every 30s poll
+                        // labelled two-day-old prices as current.
+                        'live.json · prices as of '+(raw.asof||'unknown date')
+                        +(raw.tradebook_last?' · trades to '+raw.tradebook_last:''));
+    if(d.updated===undefined) d.updated='live.json';
+    if(d._trades===undefined) d._trades=[];
+    liveOk=true;render(d);renderNeverSold(d);renderUpbar();
+  }).catch(err=>{
     // Not a serving problem: live.json is a private portfolio file and is deliberately not in the
     // repo, so a 404 is the NORMAL first load for everyone. Two consequences the old catch missed:
     // (1) it ran every 30s and overwrote the "uploaded · yourfile.csv" stamp with a failure
@@ -841,9 +877,16 @@ function load(){fetch('live.json?t='+Date.now()).then(r=>r.json()).then(d=>{
     //     they were simply unreachable. Rendering the empty dataset once makes them reachable.
     if(uploaded) return;
     liveOk=false;
-    if(!DATA){ const e=buildData([],[],0,'no live.json — drop a tradebook or holdings file below');
-      render(e); renderNeverSold(e); }
-    document.getElementById('upd').textContent='no live.json — drop a tradebook or holdings file below';
+    // Say WHICH failure it was. A missing file and a file that arrived but could not be used need
+    // opposite actions, and reporting both as "no live.json" sent a search for a file that was being
+    // served correctly. HTTP failures are the normal empty state; anything else is a real fault and
+    // goes to the console too, because the one-line stamp cannot carry a stack.
+    const missing = /^HTTP /.test(err&&err.message||'');
+    const msg = missing ? 'no live.json — drop a tradebook or holdings file below'
+                        : 'live.json loaded but could not be used: '+(err&&err.message||err);
+    if(!missing) console.error('live.json failed after loading:', err);
+    if(!DATA){ const e=buildData([],[],0,msg); render(e); renderNeverSold(e); }
+    document.getElementById('upd').textContent=msg;
     renderUpbar();})}
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));document.querySelectorAll('.view').forEach(x=>x.classList.remove('on'));t.classList.add('on');document.getElementById(t.dataset.v).classList.add('on')});
 load();setInterval(load,30000);
