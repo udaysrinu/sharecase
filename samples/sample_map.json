@@ -1,0 +1,90 @@
+{
+ "_note": "FAKE sample for the Tracker (baskets.html). Invented quantities and costs; real tickers so /api/price can price them. Drop it on the Tracker to see every feature without real data.",
+ "batches": {
+  "CORE_SAMPLE": {
+   "tag": "CORE",
+   "label": "Large Cap Core",
+   "executed": "2026-06-02",
+   "holdings": {
+    "RELIANCE": {
+     "q": 12,
+     "avg": 1105.0
+    },
+    "TCS": {
+     "q": 6,
+     "avg": 2210.0
+    },
+    "HDFCBANK": {
+     "q": 30,
+     "avg": 668.0
+    },
+    "INFY": {
+     "q": 15,
+     "avg": 958.0
+    }
+   },
+   "sells": [
+    {
+     "s": "INFY",
+     "q": 5,
+     "price": 1041.0,
+     "date": "2026-07-14",
+     "proceeds": 5205.0,
+     "cost": 4790.0,
+     "realised_gross": 415.0,
+     "note": "sample rebalance trim"
+    }
+   ]
+  },
+  "ENERGY_SAMPLE": {
+   "tag": "ENERGY",
+   "label": "Energy & Infra",
+   "executed": "2026-06-10",
+   "holdings": {
+    "NTPC": {
+     "q": 85,
+     "avg": 334.0
+    },
+    "POWERGRID": {
+     "q": 60,
+     "avg": 248.0
+    },
+    "LT": {
+     "q": 4,
+     "avg": 3520.0
+    },
+    "RELIANCE": {
+     "q": 5,
+     "avg": 1150.0
+    }
+   },
+   "sells": [
+    {
+     "s": "POWERGRID",
+     "q": 20,
+     "price": 241.0,
+     "date": "2026-08-05",
+     "proceeds": 4820.0,
+     "cost": 4960.0,
+     "realised_gross": -140.0,
+     "note": "sample trim at a loss"
+    }
+   ]
+  },
+  "SELF_SAMPLE": {
+   "tag": "SELF",
+   "label": "Self-managed",
+   "executed": "2026-05-20",
+   "holdings": {
+    "ITC": {
+     "q": 40,
+     "avg": 289.0
+    },
+    "SBIN": {
+     "q": 15,
+     "avg": 905.0
+    }
+   }
+  }
+ }
+}
