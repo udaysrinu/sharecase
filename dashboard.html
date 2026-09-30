@@ -334,13 +334,26 @@ function cumSVG(cc,w=1120,h=240,pad=44){
   return `<svg viewBox="0 0 ${w} ${h}" class="chart"><defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0B5B3A" stop-opacity=".22"/><stop offset="1" stop-color="#0B5B3A" stop-opacity="0"/></linearGradient></defs><line x1="${pad}" y1="${z.toFixed(1)}" x2="${w-pad}" y2="${z.toFixed(1)}" stroke="#A6AFA2" stroke-dasharray="2 3"/><path d="${area}" fill="url(#cg)"/><path d="${path}" fill="none" stroke="#0B5B3A" stroke-width="2.5" stroke-linejoin="round"/>${dots}</svg>`;
 }
 // concentration horizontal stacked bar (Cleveland-McGill: length beats angle)
-function concBar(grp){const tot=grp.reduce((s,g)=>s+g.val,0)||1;const ink={'Defence':'#c2410c','Cash':'#64748b','Adani':'#A52A22','Infra':'#877a4d','Hedge':'#856011','Other':'#46534C'};
+// GROUPS COME FROM THE DATA. They used to be a fixed list naming one person's own buckets, with
+// descriptions of those buckets shown to every visitor, and any other grp value got no heading and no
+// filter button. Now: whatever `grp` values the loaded holdings carry, ordered by value with Other last,
+// coloured from an indexed palette so every chart gives a group the same colour.
+const GFAM=[['#c2410c','#ea580c','#9a3412','#d4550a','#b03d0a','#7c2d12'],['#6b5f3a','#877a4d','#574d2e','#9c8d5c','#4a4227','#b0a06a'],
+  ['#856011','#8a6314','#c28f22'],['#7d5a4f','#966d5f','#65483f','#a87d6d','#523930','#b58f7d'],['#64748b','#4b5563'],['#6d4aa8','#5a3d8c','#8159c2']];
+const GOTHER=['#46534C','#5c6a61','#6f7c73'];
+const escH=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function groupList(H){const v={};(H||[]).forEach(h=>{const g=h.grp||'Other';v[g]=(v[g]||0)+Math.abs((+h.q||0)*(+h.ltp||0));});
+  return Object.keys(v).sort((a,b)=>((a==='Other')-(b==='Other'))||(v[b]-v[a]));}
+const gFam=g=>{ if(g==='Other') return GOTHER; const L=groupList(DATA&&DATA.holdings).filter(x=>x!=='Other');
+  const i=L.indexOf(g); return GFAM[(i<0?0:i)%GFAM.length]; };
+const gByName=new Proxy({},{get:(_,k)=>gFam(k)[0]});      // g -> its primary ink, for ink[g] lookups
+function concBar(grp){const tot=grp.reduce((s,g)=>s+g.val,0)||1;const ink=gByName;
   const seg=grp.map(g=>{const p=g.val/tot*100;return `<div class="cseg" style="width:${p}%;background:${ink[g.g]||'#46534C'}" title="${g.g} ${p.toFixed(0)}%">${p>9?g.g+' '+p.toFixed(0)+'%':''}</div>`}).join('');
   const leg=grp.map(g=>`<span><i style="background:${ink[g.g]||'#46534C'}"></i>${g.g} · ${M(g.val)} (${(g.val/tot*100).toFixed(0)}%) <span class="${cls(g.pnl)}">${M(g.pnl)}</span></span>`).join('');
   return `<div class="conc">${seg}</div><div class="conclbl">${leg}</div>`}
 // Kite-style allocation bar: one tile PER STOCK, width ∝ chosen metric, colored by basket
 let allocMode='val';  // val | inv | pnl
-const GINK={'Defence':['#c2410c','#ea580c','#9a3412','#d4550a','#b03d0a','#7c2d12'],'Cash':['#64748b','#4b5563'],'Adani':['#7d5a4f','#966d5f','#65483f','#a87d6d','#523930','#b58f7d'],'Infra':['#6b5f3a','#877a4d','#574d2e','#9c8d5c','#4a4227','#b0a06a'],'Hedge':['#856011','#8a6314','#c28f22'],'Other':['#6d4aa8','#5a3d8c','#8159c2']};
+const GINK=new Proxy({},{get:(_,k)=>gFam(k)});   // group -> its shade family, from the data
 function allocBar(H){
   // Refuse an empty book rather than let the `||1` divide-by-zero sentinel below reach the screen:
   // it printed a portfolio total of "₹1", which reads as a real (tiny) number rather than as
@@ -357,7 +370,7 @@ function allocBar(H){
     const col=allocMode==='pnl'?(h.pnl>=0?'#0B5B3A':'#A52A22'):pick(h.grp);
     const showLab=pc>4.5;
     const val=allocMode==='val'?h.q*h.ltp:allocMode==='inv'?h.q*h.avg:h.pnl;
-    return `<div class="atile" style="width:${pc}%;background:${col}" data-s="${h.s}" data-v="${Math.round(val)}" data-p="${pc.toFixed(1)}" data-g="${h.grp}">${showLab?`<span class="lab">${h.s}</span>`:''}</div>`}).join('');
+    return `<div class="atile" style="width:${pc}%;background:${col}" data-s="${h.s}" data-v="${Math.round(val)}" data-p="${pc.toFixed(1)}" data-g="${escH(h.grp)}">${showLab?`<span class="lab">${h.s}</span>`:''}</div>`}).join('');
   const total=allocMode==='pnl'?list.reduce((s,h)=>s+h.pnl,0):tot;
   const lbl=allocMode==='val'?'Current value':allocMode==='inv'?'Invested':'P&L magnitude';
   return `<div class="allocbar" id="allocbar">${tiles}</div>
@@ -376,20 +389,21 @@ function bindAllocTips(){
       const v=+t.dataset.v;tip.innerHTML=`<b>${t.dataset.s}</b> <span class="dim">${t.dataset.g}</span><div class="tv">${allocMode==='pnl'?(v>=0?'+':'−')+'₹'+Math.abs(v).toLocaleString('en-IN'):'₹'+v.toLocaleString('en-IN')} · ${t.dataset.p}%</div>`;};
     t.onmouseleave=()=>tip.style.opacity='0';});
 }
-function donutSVG(grp,mkt){const tot=grp.reduce((s,g)=>s+g.val,0)||1,cx=95,cy=88,r=63;let a=-90;const inks={'Defence':'#c2410c','Cash':'#64748b','Adani':'#A52A22','Infra':'#877a4d','Hedge':'#856011','Other':'#46534C'};let o=grp.map(g=>{const frac=g.val/tot,ang=frac*360,a2=a+ang,rad=Math.PI/180;const x1=cx+r*Math.cos(a*rad),y1=cy+r*Math.sin(a*rad),x2=cx+r*Math.cos(a2*rad),y2=cy+r*Math.sin(a2*rad),lg=ang>180?1:0;const p=`<path d="M${cx},${cy} L${x1.toFixed(1)},${y1.toFixed(1)} A${r},${r} 0 ${lg},1 ${x2.toFixed(1)},${y2.toFixed(1)} Z" fill="${inks[g.g]||'#46534C'}" stroke="#FCFCF8" stroke-width="1.5"/>`;a=a2;return p}).join('');o+=`<circle cx="${cx}" cy="${cy}" r="38" fill="#FCFCF8"/><text x="${cx}" y="${cy-2}" text-anchor="middle" class="dn">${M(mkt)}</text><text x="${cx}" y="${cy+12}" text-anchor="middle" class="dnl">exposure</text>`;const leg=grp.map(g=>`<div class="lgi"><span class="sw" style="background:${inks[g.g]||'#46534C'}"></span>${g.g} · <span class="${cls(g.pnl)}">${M(g.pnl)}</span></div>`).join('');return `<svg viewBox="0 0 190 190" class="donut">${o}</svg><div class="legend">${leg}</div>`}
+function donutSVG(grp,mkt){const tot=grp.reduce((s,g)=>s+g.val,0)||1,cx=95,cy=88,r=63;let a=-90;const inks=gByName;let o=grp.map(g=>{const frac=g.val/tot,ang=frac*360,a2=a+ang,rad=Math.PI/180;const x1=cx+r*Math.cos(a*rad),y1=cy+r*Math.sin(a*rad),x2=cx+r*Math.cos(a2*rad),y2=cy+r*Math.sin(a2*rad),lg=ang>180?1:0;const p=`<path d="M${cx},${cy} L${x1.toFixed(1)},${y1.toFixed(1)} A${r},${r} 0 ${lg},1 ${x2.toFixed(1)},${y2.toFixed(1)} Z" fill="${inks[g.g]||'#46534C'}" stroke="#FCFCF8" stroke-width="1.5"/>`;a=a2;return p}).join('');o+=`<circle cx="${cx}" cy="${cy}" r="38" fill="#FCFCF8"/><text x="${cx}" y="${cy-2}" text-anchor="middle" class="dn">${M(mkt)}</text><text x="${cx}" y="${cy+12}" text-anchor="middle" class="dnl">exposure</text>`;const leg=grp.map(g=>`<div class="lgi"><span class="sw" style="background:${inks[g.g]||'#46534C'}"></span>${g.g} · <span class="${cls(g.pnl)}">${M(g.pnl)}</span></div>`).join('');return `<svg viewBox="0 0 190 190" class="donut">${o}</svg><div class="legend">${leg}</div>`}
 
 // per-row: dual today/total encoding + distance-to-stop bar
 function holdRow(h,mx){const pos=h.pnl>=0,pct=Math.abs(h.pnl)/mx*50,rp=(h.ltp-h.avg)/h.avg*100;
   let sl='';if(h.sl){const dist=(h.ltp-h.sl)/h.ltp*100;const col=dist<7?'#A52A22':dist<12?'#856011':'#0B5B3A';sl=`<div class="sl-wrap" title="SL ₹${h.sl} · ${dist.toFixed(1)}% away"><div class="sl-fill" style="width:${Math.max(3,Math.min(100,100-dist*3)).toFixed(0)}%;background:${col}"></div></div>`}
   return `<div class="hr" tabindex="0"><div><div class="hr-s">${h.s}</div>${sl}</div><div class="hr-q">${h.q} @ ₹${h.avg.toLocaleString('en-IN',{maximumFractionDigits:0})}</div><div class="hr-track"><div class="hr-bar ${ec(h.pnl)}" style="width:${pct.toFixed(1)}%;${pos?'left:50%':'right:50%'}"></div></div><div class="hr-day ${cls(h.day)}">${sign(h.day)}${Math.abs(h.day).toFixed(1)}%<span class="ar"> ${h.day>=0?'▲':'▼'}</span><br><span class="dim" style="font-size:10px">today</span></div><div class="hr-v ${cls(h.pnl)}">${M(h.pnl)}<small>${sign(rp)}${Math.abs(rp).toFixed(1)}%</small></div></div>`}
-function groupedHoldings(H){const mx=Math.max(...H.map(h=>Math.abs(h.pnl)))||1;const META={'Defence':['Smallcase · Defence','15-stock basket'],'Cash':['Liquid / Cash','parked'],'Adani':['Adani Basket','clean-chit conviction'],'Infra':['Smallcase · Infra Tracker','thematic basket — held together'],'Hedge':['Hedges & ETFs','gold · silver'],'Other':['Other','']};const ORD=['Defence','Infra','Hedge','Adani','Cash','Other'];const byg={};H.forEach(h=>(byg[h.grp]=byg[h.grp]||[]).push(h));let out='';ORD.filter(g=>byg[g]).forEach(g=>{const list=byg[g].sort((a,b)=>b.pnl-a.pnl),sub=list.reduce((s,h)=>s+h.pnl,0),val=list.reduce((s,h)=>s+h.q*h.ltp,0),m=META[g];out+=`<div class="ghead"><div><span class="gh-t">${m[0]}</span>${m[1]?`<span class="gh-d">${m[1]}</span>`:''}</div><div class="gh-r"><span class="gh-n">${list.length} · ${M(val)}</span><span class="gh-v ${cls(sub)}">${M(sub)}</span></div></div>`+list.map(h=>holdRow(h,mx)).join('')});return out}
+function groupedHoldings(H){const mx=Math.max(...H.map(h=>Math.abs(h.pnl)))||1;const ORD=groupList(H), META=new Proxy({},{get:(_,k)=>[escH(k),'']});const byg={};H.forEach(h=>(byg[h.grp]=byg[h.grp]||[]).push(h));let out='';ORD.filter(g=>byg[g]).forEach(g=>{const list=byg[g].sort((a,b)=>b.pnl-a.pnl),sub=list.reduce((s,h)=>s+h.pnl,0),val=list.reduce((s,h)=>s+h.q*h.ltp,0),m=META[g];out+=`<div class="ghead"><div><span class="gh-t">${m[0]}</span>${m[1]?`<span class="gh-d">${m[1]}</span>`:''}</div><div class="gh-r"><span class="gh-n">${list.length} · ${M(val)}</span><span class="gh-v ${cls(sub)}">${M(sub)}</span></div></div>`+list.map(h=>holdRow(h,mx)).join('')});return out}
 // filtered/sorted flat list
 function flatHoldings(H){let L=H.filter(h=>(fState.grp==='all'||h.grp===fState.grp)&&(!fState.q||h.s.toLowerCase().includes(fState.q.toLowerCase())));
   L.sort((a,b)=>{let x,y;if(fState.sort==='pnl'){x=a.pnl;y=b.pnl}else if(fState.sort==='day'){x=a.day;y=b.day}else if(fState.sort==='val'){x=a.q*a.ltp;y=b.q*b.ltp}else{return fState.dir*a.s.localeCompare(b.s)}return fState.dir*(x-y)});
   const mx=Math.max(...H.map(h=>Math.abs(h.pnl)))||1;return L.length?L.map(h=>holdRow(h,mx)).join(''):'<div class="note" style="padding:20px;text-align:center">No positions match.</div>'}
-function controls(){const grps=['all','Defence','Infra','Hedge','Adani','Cash'];
+let CTRL_G=[];
+function controls(){const grps=['all',...groupList(DATA&&DATA.holdings)]; CTRL_G=grps;
   return `<div class="ctrl"><input id="srch" aria-label="Search holdings by symbol" placeholder="search symbol…" value="${fState.q}">
-   <span class="fsep"></span>${grps.map(g=>`<button class="fbtn ${fState.grp===g?'on':''}" onclick="setF('grp','${g}')">${g==='all'?'All':g}</button>`).join('')}
+   <span class="fsep"></span>${grps.map((g,i)=>`<button class="fbtn ${fState.grp===g?'on':''}" onclick="setF('grp',CTRL_G[${i}])">${g==='all'?'All':escH(g)}</button>`).join('')}
    <span class="fsep"></span><span class="dim mono" style="font-size:10px">SORT</span>
    ${[['pnl','P&L'],['day','Today'],['val','Value'],['sym','A–Z']].map(s=>`<button class="fbtn ${fState.sort===s[0]?'on':''}" onclick="setF('sort','${s[0]}')">${s[1]}${fState.sort===s[0]?(fState.dir<0?' ↓':' ↑'):''}</button>`).join('')}</div>`}
 function setF(k,v){if(k==='sort'&&fState.sort===v){fState.dir*=-1}else if(k==='sort'){fState.sort=v;fState.dir=v==='sym'?1:-1}else{fState[k]=v}renderLive()}
@@ -406,7 +420,7 @@ function renderLive(){const d=DATA;
       sells in it have no matching buy — so anything bought before it starts leaves no trace to
       reconstruct.`:''}${d.openSyms?` (FIFO does leave ${d.openSyms} symbol${d.openSyms===1?'':'s'}
       with unmatched buys, but that is a floor on your position, not your position — measured
-      against a real account it recovered 3 of 38.)`:''}</p>
+      against a real account it recovered only a small fraction of the positions.)`:''}</p>
       <p style="margin:9px 0 0;font-size:13.5px;color:var(--tx2)">Drop a <b>holdings JSON</b> —
       the shape in <span class="mono">samples/sample_holdings.json</span> — and this tab fills in.
       Every other tab is unaffected: realised P&amp;L comes from the tradebook you already loaded.</p>
@@ -468,7 +482,7 @@ function render(d){DATA=d;document.getElementById('upd').textContent=d.updated;
   const lt=document.getElementById('lt');if(lt)lt.querySelectorAll('th').forEach((i,ix)=>i.onclick=()=>{const tb=lt.querySelector('tbody'),rows=[...tb.rows],num=ix>=2,asc=i.dataset.a!=='1';i.dataset.a=asc?'1':'0';rows.sort((a,b)=>{let x=a.cells[ix].innerText.replace(/[₹,%dkLCr→ ]/g,'').replace('−','-'),y=b.cells[ix].innerText.replace(/[₹,%dkLCr→ ]/g,'').replace('−','-');if(num)return asc?(+x||0)-(+y||0):(+y||0)-(+x||0);return asc?x.localeCompare(y):y.localeCompare(x)});rows.forEach(r=>tb.appendChild(r))});
   // STORY — the whole piece is an argument about round-trips, so with none there is nothing to say.
   const wo=d.inwindow-bw.pnl;
-  // The window label was hard-coded "Apr–Jun 2026"; derive it from the months actually present.
+  // The window label was hard-coded to one quarter; derive it from the months actually present.
   const win=d.monthly.length?d.monthly[0].m+(d.monthly.length>1?' – '+d.monthly[d.monthly.length-1].m:''):'in-window';
   document.getElementById('story').innerHTML=!hasRT
    ?`<div class="panel fade"><b>Nothing to narrate yet.</b><p style="margin:9px 0 0;font-size:13.5px;
@@ -481,14 +495,14 @@ function render(d){DATA=d;document.getElementById('upd').textContent=d.updated;
 //  Drop an XLSX/CSV → parse → FIFO-match → rebuild the dashboard, no Python.
 // ════════════════════════════════════════════════════════════════════════
 
-// Current prices for stocks NO LONGER HELD (pulled from Kite, 2026-06-22).
+// Current prices for stocks NO LONGER HELD (e.g. pulled from Kite).
 // Held names get their live price from DATA.holdings at runtime — this map
 // only needs to cover sold/exited counters so the "never sold" view can
 // value phantom shares at today's price.
 const CURPRICE={};  // optional: {"SYMBOL":lastPrice} for stocks you've fully exited
 // basket classification (mirrors _holdings.json grp field)
 const GRPMAP={};  // optional: {"SYMBOL":"BasketName"} to group exited stocks
-const grpOf=s=>GRPMAP[s]||'Other';   // smallcase infra tracker is the default bucket
+const grpOf=s=>GRPMAP[s]||'Other';   // no map entry: the neutral Other bucket
 
 // ---- column aliasing (same as the Python parser) ----
 const COL={symbol:['symbol','tradingsymbol','instrument','scrip','stock'],
@@ -648,11 +662,11 @@ function buildData(trades,holdings,pre,stamp){
   // What a tradebook cannot know is today's price. These rows are therefore valued AT COST and say
   // so: setting ltp=avg silently would report a real portfolio as exactly break-even, which is a
   // wrong answer dressed as an answer rather than a missing one.
-  // MEASURED, not assumed: reconstructing holdings from openLots recovered only 3 of 38 real
-  // positions on the actual tradebook (131 rows = a window, not full history). Anything bought
+  // MEASURED, not assumed: reconstructing holdings from openLots recovered only a small fraction of
+  // the positions on a real tradebook (a window of a few months, not full history). Anything bought
   // before the window has no buy row to match, and if it was never sold it leaves no trace at all.
-  // So a tradebook can only ever LOWER-BOUND the position, and 12 wrong quantities presented as a
-  // portfolio is worse than an empty tab. openLots is kept for the honest empty state below.
+  // So a tradebook can only ever LOWER-BOUND the position, and a set of wrong quantities presented as
+  // a portfolio is worse than an empty tab. openLots is kept for the honest empty state below.
   let H=(holdings&&holdings.length)?holdings:null;
   out.openSyms=Object.keys(openLots||{}).filter(s=>openLots[s].reduce((a,l)=>a+l[0],0)>0).length;
   // A sell with no matching buy proves the tradebook starts mid-history. It is a sufficient signal,
@@ -696,8 +710,8 @@ function counterfactual(data){
   rows.sort((a,b)=>b.val-a.val);
   // Both sides must be the SAME BOOK in the SAME UNIT. The old actual side was
   // data.mkt + data.cum_realized — a gross market value plus a net P&L — so the cost basis returned
-  // on every exit simply vanished, and it spanned all 38 holdings against only the in-window buys.
-  // On the real portfolio that understated the actual path by ₹28.83L. Instead: net P&L both sides,
+  // on every exit simply vanished, and it spanned every holding against only the in-window buys.
+  // On a real portfolio that understated the actual path badly. Instead: net P&L both sides,
   // over these trades only, on the symbols we can actually price.
   //   phantom P&L = mark every share ever bought to today's price
   //   actual  P&L = FIFO realised on the lots sold + mark-to-market on the lots still open
@@ -724,7 +738,7 @@ function renderNeverSold(data){
   // ABSTAIN when nothing can be priced. Prices come from the holdings you loaded (plus CURPRICE for
   // exited names), so with no holdings every phantom symbol is dropped and phantomVal is 0. The
   // page then compared 0 against banked realised and stated a confident verdict whose SIGN was just
-  // the sign of cum_realized — "your discipline beat diamond hands by ₹1.13L" where ₹1.13L was the
+  // the sign of cum_realized — "your discipline beat diamond hands by ₹X" where ₹X was the
   // banked total relabelled as alpha, or the exact opposite claim on a different file. A fabricated
   // conclusion over an empty table is the worst failure this page can have, so it says nothing.
   if(!cf.rows.length){
