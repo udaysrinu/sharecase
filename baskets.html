@@ -117,6 +117,10 @@ border:1px solid var(--hair2);border-radius:var(--radius-sm);padding:6px 10px;mi
 /* every money column right-aligned at a fixed width so the five rows line up as a ledger */
 .bpnl{font-size:14px;font-weight:500;min-width:6.6em;text-align:right}
 .bpct{font-size:14px;font-weight:600;min-width:5.2em;text-align:right}
+/* Total return on the closed row. Deliberately quieter than .bpct: unrealised is the live number you
+   watch, total is the one you judge by, and two equally loud percentages next to each other read as a
+   contradiction rather than two views. */
+.btot{font-size:12px;font-weight:500;min-width:6.4em;text-align:right;opacity:.85}
 .bflag{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;
 border-radius:50%;background:var(--em);color:#fff;font-family:var(--num);font-size:11px;font-weight:700}
 .bflag.warnflag{background:var(--gold)}
@@ -127,13 +131,21 @@ h2 button.sm{margin-left:0}
 button.sm{min-height:28px;padding:4px 11px;font-size:11.5px;margin-left:auto}
 table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13.5px}
 th{font-family:var(--num);font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--tx3);
-font-weight:600;text-align:left;padding:0 10px 8px 0;border-bottom:1px solid var(--hair2)}
+/* Horizontal padding MUST match td below, or every column header sits off-centre from its own
+   numbers. It was 10px against td's 14px and the drift was visible on the right-aligned columns. */
+font-weight:600;text-align:left;padding:0 24px 9px 0;border-bottom:1px solid var(--hair2)}
+th:first-child{padding-right:30px}
+th:last-child,td:last-child{padding-right:0}
 th.r,td.r{text-align:right}
-td{padding:8px 10px 8px 0;border-bottom:1px solid var(--hair)}
+td{padding:11px 24px 11px 0;border-bottom:1px solid var(--hair);vertical-align:top}
 tr:last-child td{border-bottom:none}
-td.sym{font-family:var(--num);font-weight:500}
-.dual{background:#F7EEDC;color:var(--gold);font-family:var(--num);font-size:9px;padding:1px 5px;
-border-radius:var(--radius-xs,3px);margin-left:5px;letter-spacing:.05em}
+td.sym{font-family:var(--num);font-weight:500;padding-right:30px}
+/* Own line, not trailing the symbol. Inline it collided with the name - and a margin is invisible to
+   copy-paste, so a symbol and its chip pasted as one run-on word ("ABCDEFBASKET1 + BASKET2"). A block element
+   emits a newline when copied, so the text reads correctly outside the page too. */
+.dual{display:block;width:fit-content;margin-top:3px;background:#F7EEDC;color:var(--gold);
+font-family:var(--num);font-size:9px;padding:2px 6px;border-radius:var(--radius-xs,3px);
+letter-spacing:.05em;cursor:help}
 .wbar{height:5px;background:var(--panel2);border-radius:3px;overflow:hidden;margin-top:4px}
 .wbar i{display:block;height:100%;background:var(--em)}
 .ftbar{width:100%;border-bottom:1px solid var(--hair);background:var(--panel);margin-bottom:26px}
@@ -369,6 +381,8 @@ function normalise(j){
     });
   } else if(j&&j.batches){
     BATCHES=j.batches;
+    SYMALIAS=j.symbol_aliases||{};   // map symbol -> tradebook symbol; see tbNorm
+    CORPACTS=j.corporate_actions||[]; // bonus / split / credit, applied inside tbRealised
     Object.entries(j.batches).forEach(([key,b])=>{
       META[b.tag||key]=b;
       Object.entries(b.holdings||{}).forEach(([s,h])=>
@@ -404,15 +418,32 @@ function normalise(j){
 }
 
 function render(){
+  // Record WHICH baskets hold each symbol and how many shares, not just how many baskets. The chip
+  // used to read "in 2+ baskets" and stop there, which tells you a number you can already see and
+  // withholds the only fact you need - and the map is the sole place that split exists, because Kite
+  // reports one merged holding.
   const seen={};
-  Object.values(GROUPS).forEach(G=>Object.keys(G.pos).forEach(s=>seen[s]=(seen[s]||0)+1));
-  const dual=Object.keys(seen).filter(s=>seen[s]>1);
+  Object.values(GROUPS).forEach(G=>Object.entries(G.pos).forEach(([s,p])=>{
+    (seen[s]=seen[s]||[]).push({tag:G.tag, label:G.label, q:p.q}); }));
+  const dual=Object.keys(seen).filter(s=>seen[s].length>1);
+  // "BASKET1 8 + BASKET2 3 = 11". Quantities included because the split is the actionable part: it
+  // is what stops a rebalance trimming the wrong basket's lot.
+  const dualWho=s=>(seen[s]||[]).map(x=>`${x.tag} ${Q(x.q)}`).join(' + ')
+    + (seen[s].length>1?` = ${Q(seen[s].reduce((a,x)=>a+x.q,0))}`:'');
 
-  let html='', gVal=0, gCost=0, gCostPriced=0, gValPriced=0, gAdj=0, gRealised=0;
+  let html='', gLedger=0, gVal=0, gCost=0, gCostPriced=0, gValPriced=0, gAdj=0, gRealised=0;
   // computed once per render, not per basket
   const TB=Object.keys(TRADES).length?tbRealised():null;
   const TB_ALL=TB?tbAttribute(TB.matched):{};
   const TB_BY_TAG={}; Object.entries(TB_ALL).forEach(([k,v])=>{ if(!k.startsWith('__')) TB_BY_TAG[k]=v; });
+  // The last date the tradebook can speak for. A Zerodha export is T+1: trades done TODAY are not in
+  // the file you download today. So "tradebook wins over ledger" is only true UP TO THIS DATE - past
+  // it the tradebook is not more complete, it is simply silent, and preferring it would delete a
+  // recorded sale. Measured: with an export ending five days before a rebalance, the plain either/or
+  // dropped that day's entire realised gain from the totals, with nothing on screen to say so.
+  // From the FIFO's own input, which now includes map fills past the last export - so `fresh` below
+  // is empty whenever those fills are already FIFO-costed, and nothing is counted twice.
+  const TB_LAST=TB?TB.trades.reduce((m,t)=>t.d>m?t.d:m,''):'';
   const TBSUM={
     all:       Object.values(TB_ALL).reduce((a,b)=>a+b.pnl,0),
     baskets:   Object.values(TB_BY_TAG).reduce((a,b)=>a+b.pnl,0),
@@ -468,15 +499,36 @@ function render(){
     // Tradebooks win when present, because they are complete; the ledger is the fallback.
     const sells=(G.sells||[]).filter(x=>x&&x.q>0);
     const tb=TB_BY_TAG[tag];
-    const realised=tb?tb.pnl:sells.reduce((a,x)=>a+(+x.realised_gross||0),0);
-    const proceeds=tb?tb.proceeds:sells.reduce((a,x)=>a+(+x.proceeds||0),0);
-    const realSrc=tb?'tradebook, FIFO':'recorded ledger';
+    // Ledger rows the tradebook cannot know about yet, i.e. dated after its last trade. Undated
+    // ledger rows are NOT assumed recent - an undated row could be from any time, and guessing
+    // "recent" would double-count it against the tradebook. It is dropped from this top-up instead,
+    // which understates rather than inflates.
+    const fresh=TB_LAST?sells.filter(x=>x.date&&x.date>TB_LAST):[];
+    const realised=tb?tb.pnl    +fresh.reduce((a,x)=>a+(+x.realised_gross||0),0)
+                     :sells.reduce((a,x)=>a+(+x.realised_gross||0),0);
+    const proceeds=tb?tb.proceeds+fresh.reduce((a,x)=>a+(+x.proceeds||0),0)
+                     :sells.reduce((a,x)=>a+(+x.proceeds||0),0);
+    const realSrc=tb?(fresh.length?`tradebook to ${TB_LAST}, FIFO + ${fresh.length} newer from the ledger`
+                                  :'tradebook, FIFO')
+                    :'recorded ledger';
+    // Cost of what was SOLD, from whichever source supplied `realised` above. Total return needs it
+    // as a denominator, and reading it only off `tb` meant a basket whose sales exist solely in the
+    // ledger reported a sold-cost of zero - which tripped the `if(!cs) return ''` guard below and
+    // silently dropped BOTH the Current return and Total return rows - for exactly the baskets that
+    // had just been rebalanced, i.e. when the numbers mattered most.
+    const rCost=(tb?tb.cost:0)+(tb?fresh:sells).reduce((a,x)=>a+(+x.cost||0),0);
+    // Hoisted above the <summary> so the collapsed row can show total return too. The closed view used
+    // to carry ONLY the unrealised percentage, so a basket that had just banked a gain by TRIMMING ITS
+    // WINNERS read low until you expanded it - the unrealised figure alone understated the total by most
+    // of a percentage point, and total is the number that answers "why is smallcase showing more".
+    const mixedConv = !!tb && fresh.length > 0;
     // The box below itemises the LEDGER, so it must total the ledger - not the tradebook figure in
     // the tile above it. Captioning one source over the other's rows is how a six-figure gap opened
     // up between a caption and the rows sitting directly underneath it.
     const lProceeds=sells.reduce((a,x)=>a+(+x.proceeds||0),0);
     const lRealised=sells.reduce((a,x)=>a+(+x.realised_gross||0),0);
     gRealised+=realised;
+    gLedger+=tb?fresh.reduce((a,x)=>a+(+x.realised_gross||0),0):realised;
 
     // <details> rather than a JS accordion: it collapses with no script, is keyboard operable and
     // Ctrl-F still finds text inside a closed one in current browsers.
@@ -498,9 +550,14 @@ the Invested card inside, from the same variable, so the open and closed views c
           class="bfig mono" title="Current value">${M(val)}</span></span>
         <span class="bpnl mono ${unreal!=null?cls(unreal):''}" title="Unrealised, in rupees">${
           unreal!=null?sgn(unreal)+M(Math.abs(unreal)):'—'}</span>
-        <span class="bpct mono ${unreal!=null?cls(unreal):''}" title="Unrealised, as a percentage of cost">${
+        <span class="bpct mono ${unreal!=null?cls(unreal):''}" title="Unrealised, as a percentage of cost — what you still hold. Excludes gains already banked by selling.">${
           unreal!=null&&costPriced
           ?sgn(unreal)+Math.abs(unreal/costPriced*100).toFixed(2)+'%':'—'}</span>
+        ${(rCost&&unreal!=null)?`<span class="btot mono ${mixedConv?'':cls(unreal+realised)}"
+          title="TOTAL return: unrealised plus realised, over everything ever deployed (${M(costPriced+rCost)}).
+Higher than the unrealised figure whenever a rebalance has banked a gain, because trimming a winner
+moves its profit out of 'unrealised' and into 'realised'.${mixedConv?' Ratio withheld here: this basket mixes FIFO and ledger cost bases.':''}"
+          >${mixedConv?'tot —':'tot '+sgn(unreal+realised)+Math.abs((unreal+realised)/(costPriced+rCost)*100).toFixed(2)+'%'}</span>`:''}
       </summary>
       <div class="rename">
         <label for="nm-${esc(tag)}">Basket name</label>
@@ -524,8 +581,12 @@ the Invested card inside, from the same variable, so the open and closed views c
         <div class="c"><div class="k">Realised</div>
           <div class="v mono ${(tb||sells.length)?cls(realised):''}" ${(tb||sells.length)?'':'style="color:var(--tx3)"'}>${
             (tb||sells.length)?sgn(realised)+M(Math.abs(realised)):'—'}</div>
-          <div class="s ${(tb&&tb.cost)?cls(realised):''}">${
-            tb&&tb.cost ? sgn(realised)+Math.abs(realised/tb.cost*100).toFixed(1)+'% on what was sold'
+          <div class="s ${(rCost&&!mixedConv)?cls(realised):''}">${
+            // Denominator is rCost - the sold cost of WHICHEVER sources supplied `realised`. It was
+            // tb.cost alone, so a basket with FIFO and newer ledger sales divided both numerators by
+            // one denominator, overstating the percentage by about a point.
+            mixedConv ? realSrc+' · % withheld: two cost bases'
+            : rCost ? sgn(realised)+Math.abs(realised/rCost*100).toFixed(1)+'% on what was sold'
             : (tb||sells.length) ? realSrc+', gross of charges' : 'no sales recorded'}</div></div>
       </div>
       ${(()=>{
@@ -539,19 +600,38 @@ the Invested card inside, from the same variable, so the open and closed views c
         // XIRR is what fixes that and it is not computable here: building a per-basket cash-flow
         // series needs to know which basket each BUY belonged to, and a tradebook carries no tag.
         if(unreal==null) return '';
-        const rz = tb ? realised : 0, cs = tb&&tb.cost ? tb.cost : 0;
+        const rz = realised, cs = rCost;         // whichever source supplied realised, above
         if(!cs) return '';                       // nothing sold: total return IS the current return
-        const totR = unreal + rz, cap = cost + cs;
+        // Two cost conventions must not be silently averaged into one ratio. FIFO costs a sale at the
+        // actual oldest lot; the ledger costs it at the map's blended average, and on the same shares
+        // the two differ by several percent of the gain. Map fills past the last export now go through
+        // FIFO (tbMapFills), so this should not normally trigger - but if one basket ever has BOTH a
+        // tradebook sale and a newer ledger-only sale, the numerator and denominator come from different
+        // books and no caption can rescue the percentage - so print the rupees and refuse the ratio.
+        const mixed = !!tb && fresh.length > 0;
+        // costPriced, not cost: `unreal` covers priced rows only, so dividing by a cost that still includes
+        // an unpriced row's rupees put that row's cost under the line with nothing above it - one large
+        // unpriced holding moved a basket's figure by nearly half a point.
+        const totR = unreal + rz, cap = costPriced + cs;
         const soft = TB_UNDATEABLE.indexOf(tag)>=0;
         return `<div class="perf perf2" style="border-bottom:none;padding-bottom:0">
           <div class="c"><div class="k">Current return</div>
             <div class="v mono ${cls(unreal)}">${sgn(unreal)}${Math.abs(unreal/costPriced*100).toFixed(2)}%</div>
             <div class="s">${sgn(unreal)}${M(Math.abs(unreal))} on what you still hold</div></div>
           <div class="c"><div class="k">Total return</div>
-            <div class="v mono ${cls(totR)}">${sgn(totR)}${Math.abs(totR/cap*100).toFixed(2)}%</div>
+            <div class="v mono ${mixed?'':cls(totR)}" ${mixed?'style="color:var(--tx3)"':''}>${
+              mixed?'—':sgn(totR)+Math.abs(totR/cap*100).toFixed(2)+'%'}</div>
             <div class="s">${sgn(totR)}${M(Math.abs(totR))} on ${M(cap)} ever deployed${
-              soft?' · <b>see caveat</b>':''}</div></div>
+              mixed?' · <b>ratio withheld</b>':soft?' · <b>see caveat</b>':''}</div></div>
         </div>
+        ${mixed?`<div class="warn" style="margin-top:10px"><b>Total return percentage withheld for this
+          basket.</b> Its realised figure combines <b>${TB_LAST} and earlier from the tradebook</b>
+          (costed at the actual oldest lot, FIFO) with <b>${fresh.length} newer sale${
+          fresh.length===1?'':'s'} from the recorded ledger</b> (costed at this basket's blended
+          average). The rupee total is right; the percentage would divide a figure from one book by a
+          denominator from another, and the two conventions can differ by several percent of the gain
+          on the same shares. Re-export the tradebook so every sale is FIFO-costed and the ratio
+          returns.</div>`:''}
         ${soft?`<div class="warn" style="margin-top:10px">This basket records no start date, so its
           realised figure may include your own trading in these symbols <b>before the basket existed</b>.
           Its total return is therefore softer than the others on this page.</div>`:''}`;
@@ -620,7 +700,14 @@ the Invested card inside, from the same variable, so the open and closed views c
         // No cost basis => no P&L and no return. Both would be measured against nothing.
         const pnl=(r.val!=null&&!r.noCost)?r.val-r.cost:null;
         const ret=pnl!=null?(r.px/r.avg-1)*100:null, w=r.val!=null&&val?r.val/val*100:0;
-        return `<tr><td class="sym">${esc(r.s)}${dual.includes(r.s)?'<span class="dual">in 2+ baskets</span>':''}</td>
+        return `<tr><td class="sym">${esc(r.s)}${dual.includes(r.s)
+          // Names the other baskets and the share split, on hover AND in the chip text. `title` is a
+          // native tooltip: no click handler, works on keyboard focus, and survives with JS disabled.
+          // Touch devices get no hover at all, which is why the text itself carries the answer too.
+          ?`<span class="dual" title="${esc(r.s)} is split across baskets: ${esc(dualWho(r.s))}. Kite
+reports ONE merged holding, so only this map knows which lot belongs to which basket - and trimming
+the wrong one is how a rebalance silently breaks the other basket.">${esc(
+            (seen[r.s]||[]).map(x=>x.tag).join(' + '))}</span>`:''}</td>
           <td class="r mono">${Q(r.q)}</td>
           <td class="r mono">${r.noCost?'—':r.avg.toFixed(2)}</td>
           <td class="r mono">${r.px!=null?r.px.toFixed(2):'—'}</td>
@@ -651,16 +738,22 @@ the Invested card inside, from the same variable, so the open and closed views c
       <div class="c"><div class="k">Realised</div>
         <div class="v mono ${gRealised?cls(gRealised):''}" ${gRealised?'':'style="color:var(--tx3)"'}>${
           gRealised?sgn(gRealised)+M(Math.abs(gRealised)):'—'}</div>
-        <div class="s">${gRealised?(TB?'baskets only, FIFO, gross':'recorded sales, gross'):'no sales recorded'}</div></div>
+        <div class="s">${gRealised?(!TB?'recorded sales, gross'
+          :Math.abs(gLedger)>0.5?`baskets only · FIFO + ${M(Math.abs(gLedger))} recorded after the tradebook ends · gross`
+          :'baskets only, FIFO, gross'):'no sales recorded'}</div></div>
       <div class="c"><div class="k">Unrealised</div>
         <div class="v mono ${gUn!=null?cls(gUn):''}">${gUn!=null?sgn(gUn)+M(Math.abs(gUn)):'—'}</div>
         <div class="s ${gUn!=null?cls(gUn):''}">${gUn!=null&&gCostPriced
           ?sgn(gUn)+Math.abs(gUn/gCostPriced*100).toFixed(2)+'%':'needs live prices'}</div></div>
     </div>
     ${dual.length?`<div class="warn"><b>${dual.length} stock${dual.length>1?'s appear':' appears'} in more
-      than one basket:</b> ${dual.map(esc).join(', ')}. Weights are computed inside each basket, so
-      these are counted in both — correct per basket, but your real exposure to them is the sum, and
-      rebalancing one basket cannot see the other half.</div>`:''}
+      than one basket</b>, and the split is what matters — Kite reports one merged holding per symbol,
+      so this map is the only record of which lot belongs to which basket:
+      <div style="margin-top:6px">${dual.map(s=>
+        `<div class="mono" style="font-size:12px">${esc(s)} &nbsp; ${esc(dualWho(s))}</div>`).join('')}</div>
+      <div style="margin-top:6px">Weights are computed inside each basket, so these are counted in
+      both — correct per basket, but your real exposure is the sum, and rebalancing one basket cannot
+      see the other half.</div></div>`:''}
     </div>
     ${TB?dupeWarning():''}
     ${TB?`<div class="sells" style="margin-top:14px">
@@ -698,8 +791,12 @@ the Invested card inside, from the same variable, so the open and closed views c
       <b class="mono ${cls(gUn+gRealised)}">${sgn(gUn+gRealised)}${M(Math.abs(gUn+gRealised))}</b>.
       ${TB&&Math.abs(TBSUM.all-TBSUM.baskets)>1?`A further <b class="mono">${sgn(TBSUM.all-TBSUM.baskets)}${
         M(Math.abs(TBSUM.all-TBSUM.baskets))}</b> of realised P&amp;L is in the table above and is
-      deliberately <b>not</b> added here: it came from positions no basket ever held, so folding it into
-      a basket return would answer a different question than the one this line asks.`:''}
+      deliberately <b>not</b> added here: it is trading outside any basket's holding - positions no
+      basket ever held, sales made <b>before</b> the basket owning that stock existed, and any sale two
+      baskets could both claim. Folding it in would answer a different question than this line asks.`:''}
+      Unrealised uses Kite's <b>average</b> cost; realised uses <b>FIFO</b>, as Console and your tax
+      return do. The same split exists in Kite itself, and it can move this total by a few hundred
+      rupees against a single-convention figure.
       Still missing two things, both structurally: <b>dividends</b>, which no Kite endpoint exposes,
       and <b>charges</b>, which are not in the orders or holdings APIs either. So this is an
       under-count of the good and an over-count of the bad.</div>`:''}${gAdjNote}
@@ -754,6 +851,10 @@ async function load(text,opts){
 // risk, so it is held to the Python one: both must produce identical figures on the same exports.
 // See TRADEBOOK_PARITY in the repo notes.
 const TB_COLS=['Symbol','Trade Date','Trade Type','Quantity','Price','Trade ID','Exchange'];
+// Optional, because an older export may lack them, but both matter when present:
+//   Order Execution Time - the only correct intra-day FIFO order (see the sort in tbRealised)
+//   ISIN                 - the instrument's real identity; the symbol string is not stable
+const TB_OPT=['Order Execution Time','ISIN'];
 let TRADES={};                                  // Trade ID -> trade. Dedupes across exports.
 
 function tbParse(buf,name){
@@ -770,6 +871,7 @@ function tbParse(buf,name){
   const miss=TB_COLS.filter(c=>!H.includes(c));
   if(miss.length) throw new Error(name+': missing column(s) '+miss.join(', '));
   const ix={}; TB_COLS.forEach(c=>ix[c]=H.indexOf(c));
+  TB_OPT.forEach(c=>{ const i=H.indexOf(c); if(i>=0) ix[c]=i; });
   const d=v=>v instanceof Date
     ? v.getFullYear()+'-'+String(v.getMonth()+1).padStart(2,'0')+'-'+String(v.getDate()).padStart(2,'0')
     : String(v).slice(0,10);
@@ -783,10 +885,14 @@ function tbParse(buf,name){
     const id=d(r[ix['Trade Date']])+'|'+String(r[ix['Exchange']]).trim().toUpperCase()
              +'|'+String(r[ix['Trade ID']]);
     if(TRADES[id]!=null) continue;              // same trade in an overlapping export
+    const tmv=ix['Order Execution Time']!=null?r[ix['Order Execution Time']]:null;
     TRADES[id]={s:tbBase(r[ix['Symbol']]), d:d(r[ix['Trade Date']]),
                 t:String(r[ix['Trade Type']]).trim().toLowerCase(),
                 q:+r[ix['Quantity']], p:+r[ix['Price']],
-                id:String(r[ix['Trade ID']]), x:String(r[ix['Exchange']]).trim().toUpperCase()};
+                id:String(r[ix['Trade ID']]), x:String(r[ix['Exchange']]).trim().toUpperCase(),
+                // ISO string so it sorts lexically; Date objects arrive when cellDates is on.
+                tm:tmv==null?'':(tmv instanceof Date?tmv.toISOString().slice(0,19):String(tmv)),
+                isin:ix['ISIN']!=null&&r[ix['ISIN']]!=null?String(r[ix['ISIN']]).trim().toUpperCase():''};
     n++;
   }
   return n;
@@ -795,17 +901,94 @@ const tbBase=x=>String(x).toUpperCase().replace(/-(BE|BZ|BL)$/,'');
 
 // FIFO. A sell with no matching buy in the data has NO knowable cost, so it is reported separately
 // rather than counted as pure profit - the single most dangerous shortcut available here.
+// Fills recorded in the map for dates NO tradebook covers yet, as trade rows. A Zerodha export is T+1,
+// so the day's trades are missing from it until tomorrow's download; without these they were costed at
+// the map's blended average instead of FIFO - a different number from the dashboard and from Python
+// for the same sales. Mirrors tradebook.map_fills() exactly: only dates AFTER the last
+// real trade, so a newer export replaces them and nothing is counted twice.
+function tbMapFills(after){
+  const out=[];
+  Object.values(BATCHES).forEach(b=>Object.entries(b).forEach(([rk,rec])=>{
+    if(!/^(rebalance_|topup_|exit_)/.test(rk)||!rec||typeof rec!=='object'||!rec.date||rec.date<=after) return;
+    Object.entries(rec.fills||{}).forEach(([sym,f])=>{
+      if(!f||f.qty==null) return;
+      const oid=String(f.order_id||'');
+      out.push({s:tbNorm(sym), d:rec.date, t:(f.side||'BUY')==='BUY'?'buy':'sell', q:+f.qty, p:+f.avg_fill,
+                id:oid, x:'MAP', tm:rec.date+'T~'+oid, isin:'', map:true});
+    });
+  }));
+  return out;
+}
 function tbRealised(){
-  // Tiebreak on Trade ID, the exchange's own sequence. Without it same-day trades keep file-read
-  // order, which is user-selection order here and alphabetical in Python - so the two disagreed on
-  // how one sell's shares split across lots. Same money, different rows; deterministic now.
-  const trades=Object.values(TRADES).sort((a,b)=>
+  // FIFO order is CHRONOLOGICAL, and the export carries Order Execution Time - so use it. The old
+  // key was (date, buys-first, EXCHANGE, trade id), which put BSE before NSE whatever the clock said
+  // and so consumed the wrong lots on any day with fills on both exchanges. Measured on real data: a
+  // day with NSE fills in the morning and BSE fills near the close had its later BSE lots sold first,
+  // understating the realised gain on the next sale by about a sixth - from the sort key alone.
+  // Buys-before-sells survives only as a tiebreak for identical timestamps, where the real order is
+  // unknowable. Must stay identical to tradebook.py's key or the two implementations diverge.
+  const real=Object.values(TRADES), realLast=real.reduce((m,t)=>t.d>m?t.d:m,'');
+  const trades=real.concat(tbMapFills(realLast)).sort((a,b)=>
     a.d<b.d?-1:a.d>b.d?1:
+    (a.tm||'')!==(b.tm||'')?String(a.tm||'').localeCompare(String(b.tm||'')):
     a.t!==b.t?(a.t==='buy'?-1:1):
     a.x!==b.x?String(a.x).localeCompare(String(b.x)):
     String(a.id).localeCompare(String(b.id)));
+  // RENAMES. Lots are keyed on the symbol, so a security that changed name mid-history becomes two
+  // chains - the buys under the old name never match, and the sells are reported as bought before the
+  // window. ISIN is the real identity. Measured on real data: two renamed securities hid a large
+  // realised LOSS entirely (its buys under the old name, its sale under the new), overstating total
+  // realised by about a fifth and leaving phantom open lots that inflated unrealised as well.
+  // Merge symbols that share an ISIN; do NOT key on the ISIN, because a corporate action can reissue
+  // it under an unchanged symbol (a stock split did exactly that) and an ISIN key would split one holding.
+  // Must stay identical to tradebook.py or the two implementations report different money.
+  {
+    const byIsin={};
+    trades.forEach(t=>{ if(t.isin){ (byIsin[t.isin]=byIsin[t.isin]||[]).push(t.s); } });
+    const ren={};
+    Object.values(byIsin).forEach(list=>{
+      const uniq=[...new Set(list)];
+      if(uniq.length>1) uniq.slice(0,-1).forEach(o=>ren[o]=uniq[uniq.length-1]);
+    });
+    if(Object.keys(ren).length) trades.forEach(t=>{ if(ren[t.s]) t.s=ren[t.s]; });
+  }
   const lots={}, matched=[], uncosted=[];
+  // CORPORATE ACTIONS, from the map. A tradebook sees only trades, but a bonus, split or free credit
+  // changes the share count with no trade row, so FIFO drifts from what is held and costs every later
+  // sale against the wrong lots. Measured: a missing 1:1 bonus left half of a sale looking "bought
+  // before the window" and booked a LOSS on a sale that was really a gain - silently. Must
+  // mirror tradebook.fifo() exactly:
+  //   split   every lot held on `effective`: qty x ratio, price / ratio
+  //   bonus   ratio x shares held at the close of `record`, credited on `effective` at NIL cost as a
+  //           new lot at the BACK of the queue (also the correct tax treatment)
+  //   credit  qty shares at `price` on `effective` (rights entitlement, IPO allotment)
+  const acts=[...CORPACTS].sort((a,b)=>
+    a.effective<b.effective?-1:a.effective>b.effective?1:String(a.record||'').localeCompare(String(b.record||'')));
+  const snap={}, done=new Set(); CA_UNKNOWN=[];
+  const applyCA=upto=>acts.forEach((a,i)=>{
+    if(done.has(i)) return;
+    const sym=tbNorm(a.s), L=(lots[sym]=lots[sym]||[]);
+    if(a.type==='bonus'){
+      const rec=a.record||a.effective;
+      if(!(i in snap) && rec<upto) snap[i]=L.reduce((x,l)=>x+l[0],0);   // entitlement at record close
+      if(!(i in snap) || a.effective>upto) return;
+      if(snap[i]>0) L.push([snap[i]*(+a.ratio),0]);
+    } else if(a.type==='demerger'){
+      // each parent lot held at the CLOSE of `record` spawns ratio x qty child shares carrying
+      // cost_fraction of that lot's cost; the parent keeps the rest.
+      if((a.record||a.effective)>=upto) return;
+      const f=+a.cost_fraction, r=+a.ratio, C=(lots[tbNorm(a.child)]=lots[tbNorm(a.child)]||[]);
+      L.forEach(l=>{ C.push([l[0]*r, l[1]*f/r]); l[1]*=(1-f); });
+    } else if(a.effective>upto){ return; }
+    else if(a.type==='split'){ const r=+a.ratio; L.forEach(l=>{ l[0]*=r; l[1]/=r; }); }
+    else if(a.type==='credit'){ L.push([+a.qty,+(a.price||0)]); }
+    // An unknown type used to fall through here and be marked done, doing nothing - which is exactly
+    // how a demerger went missing on this page while Python applied it. Say so.
+    else { console.error('corporate action type not implemented here:', a.type, a); CA_UNKNOWN.push(a); }
+    done.add(i);
+  });
   for(const tr of trades){
+    applyCA(tr.d);
     if(tr.t==='buy'){ (lots[tr.s]=lots[tr.s]||[]).push([tr.q,tr.p]); continue; }
     let left=tr.q, L=lots[tr.s]||[];
     while(left>0&&L.length){
@@ -813,7 +996,7 @@ function tbRealised(){
       matched.push({s:tr.s,d:tr.d,q:take,pnl:take*(tr.p-lot[1]),proceeds:take*tr.p,cost:take*lot[1]});
       lot[0]-=take; left-=take; if(lot[0]<=0) L.shift();
     }
-    if(left>0) uncosted.push({s:tr.s,d:tr.d,q:left,proceeds:left*tr.p});
+    if(left>1e-9) uncosted.push({s:tr.s,d:tr.d,q:left,proceeds:left*tr.p});
   }
   return {trades,matched,uncosted};
 }
@@ -829,23 +1012,112 @@ function tbRealised(){
 // SELFMGD both say "various (pre-tagging)" - have NO knowable start, so they cannot be date-gated and
 // are marked undateable instead of being given an invented cutoff.
 const startOf=b=>{ const m=/^(\d{4}-\d{2}-\d{2})/.exec(String(b&&b.executed||'')); return m?m[1]:null; };
+// Membership is DATED, because using membership as of TODAY lets a later trade rewrite the past.
+// Measured on real data: one basket exited a stock at a loss, a DIFFERENT basket bought the same
+// stock five weeks later, the stock became a two-basket symbol, and the first basket's settled loss
+// silently moved to AMBIGUOUS - its realised read a fraction of the truth. A sale was also credited to
+// a basket that did not exist until the next day. The account holder caught it from memory, which
+// is the only reason it was found - every figure on screen looked plausible.
+// Windows come from batch.membership {SYM:{from,to}}, null meaning open in that direction; any symbol
+// in ever_held or holdings without a window gets a fully open one (see tbWindows).
+// Zerodha's tradebook export and its holdings API do not always name the same ISIN identically, and
+// tbBase() strips only -BE/-BZ/-BL. An InvIT held as "XYZ-IV" appears as plain "XYZ" in every
+// tradebook row, so without this bridge no window matched and its realised was bucketed unknown
+// instead of its basket. The table is EXPLICIT - stripping more suffixes could merge two genuinely different
+// instruments - and lives in the map next to the evidence for each entry.
+let SYMALIAS={}, CORPACTS=[], CA_UNKNOWN=[];   // both from the map; see tbNorm and tbRealised
+const tbNorm=s=>{ const b=tbBase(s); return SYMALIAS[s]||SYMALIAS[b]||b; };
+function tbWindows(){
+  const w={};
+  Object.entries(BATCHES).forEach(([key,b])=>{
+    const tag=b.tag||key;
+    // UNION, never `membership || fallback`. A membership block that is a strict SUBSET of ever_held
+    // used to SHADOW it: one basket's block omitted three fully-sold stocks (none listed in `exited`),
+    // so that basket's OWN recorded realised fell into unknown beside unrelated positions while its
+    // ledger table, on the same card, showed the right figure - a contradiction on one screen.
+    // Anything ever held but unwindowed
+    // gets an OPEN window: we know the basket held it, we just do not know when.
+    // Keyed on the NORMALISED symbol, so `MTARTECH` from ever_held and `MTARTECH-BE` from membership
+    // collapse to ONE window rather than pushing the same basket twice.
+    // ever_held UNION holdings: `[] || fallback` keeps an empty array in JS, so an empty ever_held
+    // used to drop every held symbol here while Python fell back to holdings - a silent split.
+    const mem={};
+    [...(b.ever_held||[]),...Object.keys(b.holdings||{})].forEach(s=>{ mem[tbNorm(s)]={from:null,to:null}; });
+    Object.entries(b.membership||{}).forEach(([s,r])=>{ mem[tbNorm(s)]=r||{from:null,to:null}; });  // explicit wins
+    Object.entries(mem).forEach(([k,r])=>{
+      (w[k]=w[k]||[]).push({tag, from:r&&r.from||null, to:r&&r.to||null}); });
+  });
+  return w;
+}
+// A tradebook says WHAT was sold; only the recorded ledger says WHICH BASKET sold it. Where a symbol
+// was held by two live baskets, symbol attribution can only answer ambiguous - but if the sale was
+// written down at the time, we already know. When one rebalance day sells the same stocks out of TWO
+// baskets, FIFO alone must dump all of that realised into ambiguous the moment an export covering the
+// day loads, throwing away the more precise record already on file.
+// Ledger wins on ATTRIBUTION, FIFO still wins on COST. Shares go out in the ledger's own order, which
+// is valid because the FIFO slices now arrive in execution-time order and the ledger rows are sorted
+// by order id - the same sequence.
+// Three rules, each from a real defect - identical to attribute_sells.py:
+//  1. rows ordered GLOBALLY by order_id across all baskets, THEN keyed. Sorting per basket and joining
+//     in map order put one basket's later sale ahead of another's earlier one, swapping thousands of
+//     rupees between the two baskets once an export covering that day loads.
+//  2. trusted only when the ledger's quantity for (symbol, date) equals the tradebook's (see tbAttribute)
+//  3. a FIFO slice spanning two rows is split between them by quantity
+function tbLedger(){
+  const rows=[];
+  Object.entries(BATCHES).forEach(([key,b])=>{
+    const tag=b.tag||key;
+    (b.sells||[]).filter(x=>x&&x.date&&x.q).forEach(x=>rows.push({oid:String(x.order_id||''),
+      k:tbNorm(x.s)+'|'+x.date, q:+x.q, tag}));
+  });
+  rows.sort((a,b)=>a.oid<b.oid?-1:a.oid>b.oid?1:a.k<b.k?-1:a.k>b.k?1:0);
+  const L={};
+  rows.forEach(r=>{ (L[r.k]=L[r.k]||[]).push({q:r.q, tag:r.tag}); });
+  return L;
+}
 function tbAttribute(matched){
-  const owners={}, start={}, undateable=new Set();
-  // b.tag||key is normalise()'s own key function - same grouping, no batch lost.
+  const start={}, undateable=new Set();
   Object.entries(BATCHES).forEach(([key,b])=>{
     const tag=b.tag||key, s=startOf(b);
     if(s===null) undateable.add(tag);
     // two batches sharing a tag: the basket began at the EARLIER of them
     else if(!(tag in start) || s<start[tag]) start[tag]=s;
-    (b.ever_held||Object.keys(b.holdings||{})).forEach(x=>{
-      const k=tbBase(x); (owners[k]=owners[k]||new Set()).add(tag); });
   });
+  const WIN=tbWindows(), LED=tbLedger(), LEDOK={}, SOLD={};
+  // Summed from the matched slices, i.e. the FIFO's own input including map fills past the last
+  // export - summing TRADES alone would miss exactly the sales the ledger exists to resolve.
+  matched.forEach(m=>{ const k=m.s+'|'+m.d; SOLD[k]=(SOLD[k]||0)+m.q; });
   const out={};
   for(const m of matched){
-    const o=owners[m.s];
-    let key=!o?'__unknown__':(o.size===1?[...o][0]:'__ambiguous__');
+    const win=WIN[m.s]||[];
+    // who held it ON THE DAY OF THE SALE
+    const o=new Set(win.filter(r=>(!r.from||m.d>=r.from)&&(!r.to||m.d<=r.to)).map(r=>r.tag));
+    let key=!o.size?'__unknown__':(o.size===1?[...o][0]:'__ambiguous__');
+    // A recorded sale beats an inference - but only consult it where the symbol cannot decide, so a
+    // ledger slip can never override a case the windows already answer.
+    if(key==='__ambiguous__'){
+      const lk=m.s+'|'+m.d, dq=LED[lk];
+      if(dq&&dq.length&&!(lk in LEDOK)){
+        const want=SOLD[lk]||0, have=dq.reduce((a,r)=>a+r.q,0);
+        LEDOK[lk]=Math.abs(have-want)<1e-6;
+      }
+      if(dq&&dq.length&&LEDOK[lk]){
+        const parts=[]; let left=m.q;
+        while(left>1e-9&&dq.length){ const take=Math.min(left,dq[0].q);
+          parts.push([dq[0].tag,take]); dq[0].q-=take; left-=take; if(dq[0].q<=1e-9) dq.shift(); }
+        if(parts.length&&parts.every(([t])=>o.has(t))){
+          parts.forEach(([t,q])=>{ const f=q/m.q, b=out[t]=out[t]||{pnl:0,proceeds:0,cost:0,syms:{}};
+            b.pnl+=m.pnl*f; b.proceeds+=m.proceeds*f; b.cost+=m.cost*f;
+            b.syms[m.s]=(b.syms[m.s]||0)+m.pnl*f; });
+          continue;
+        }
+      }
+    }
     // a dateable basket cannot own a sale that predates it
-    if(o && o.size===1 && !undateable.has(key) && start[key] && m.d < start[key]) key='__prebasket__';
+    if(o.size===1 && !undateable.has(key) && start[key] && m.d < start[key]) key='__prebasket__';
+    // held by nobody that day, but a basket picks it up LATER: your own trading in a stock a basket
+    // went on to buy. Naming it beats letting it sink into __unknown__ with unrelated positions.
+    if(!o.size && win.some(r=>r.from && m.d < r.from)) key='__prebasket__';
     const b=out[key]=out[key]||{pnl:0,proceeds:0,cost:0,syms:{}};
     b.pnl+=m.pnl; b.proceeds+=m.proceeds; b.cost+=m.cost; b.syms[m.s]=(b.syms[m.s]||0)+m.pnl;
   }
