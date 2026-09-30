@@ -150,16 +150,17 @@ applies them to his own value. The multiplier is not transmitted because it is n
 the basket. It's a property of a wallet, and each wallet supplies its own.</p>
 
 <h2><span class="n">03</span>What happens if you send the order list instead</h2>
-<p>Worth seeing, because it is the intuitive thing to do and it fails hard. Real numbers: a
-four-stock basket with a ₹14,809 floor, one holder at ₹4,00,000 (27×) and one at ₹80,000 (5.4×).
+<p>Worth seeing, because it is the intuitive thing to do and it fails hard. Illustrative numbers:
+the sample four-stock basket, with a ₹12,554 floor, one holder at ₹4,00,000 (about 32× the floor)
+and one at ₹80,000 (about 6.4×).
 The manager moves RELIANCE 30% → 35% and TCS 25% → 20%.</p>
 <div class="panel">
-  <h3>The 27× holder's own orders</h3>
+  <h3>The 32× holder's own orders</h3>
   <pre>RELIANCE  +7      TCS  −5      HDFCBANK  ±0      NTPC  −2</pre>
   <h3>Sent as weights <span class="good">— correct</span></h3>
-  <p>The 5.4× holder's app sizes those weights to his ₹78,956 and produces
-  <span class="mono">RELIANCE +1, TCS −1, HDFCBANK −1, NTPC −1</span>. He ends up
-  <span class="good">0.78 percentage points</span> from the manager's target.</p>
+  <p>The 6.4× holder's app sizes those weights to his ₹78,956 and produces
+  <span class="mono">RELIANCE +1, TCS −1, HDFCBANK ±0, NTPC −1</span>. He ends up
+  <span class="good">1.39 percentage points</span> from the manager's target.</p>
   <h3>Sent as that order list <span class="bad">— broken</span></h3>
   <p>He holds 5 TCS. The instruction says sell 5. <b>His entire TCS position is wiped out</b> and
   RELIANCE inflates to 55.3% against a 35% target. He lands
@@ -167,7 +168,7 @@ The manager moves RELIANCE 30% → 35% and TCS 25% → 20%.</p>
   <table>
     <thead><tr><th>Sent as</th><th class="r">Worst deviation from target</th></tr></thead>
     <tbody>
-      <tr><td>Weights</td><td class="r mono good">0.78 pp</td></tr>
+      <tr><td>Weights</td><td class="r mono good">1.39 pp</td></tr>
       <tr><td>Share-count orders</td><td class="r mono bad">20.26 pp</td></tr>
     </tbody>
   </table>
@@ -178,26 +179,34 @@ against a small one — it goes through zero, and a position vanishes.</p>
 <h2><span class="n">04</span>Whole shares are the real enemy</h2>
 <p>Exchanges won't sell you 0.4 of a share, so every basket is an approximation. The size of the
 approximation is set by the priciest stock relative to your capital, and it is why a basket has a
-floor at all:</p>
-<pre>scale   = max over stocks of ( price / target weight )
-minimum = round up ( sum over stocks of ( price × round down ( scale × weight / price ) ) )</pre>
-<p>Below that, the priciest stock can't afford a single share. Most tools quietly drop it and
-hand you a more concentrated portfolio than you asked for. This one refuses, and says which stock
-set the floor.</p>
-<p>The two lines matter. We shipped only the first one at the start, and it was wrong — it
-overstated this basket's floor by <span class="mono">₹12,714</span> and refused amounts that buy a
-perfectly complete basket. <span class="mono">scale</span> is the point where the binding stock
-reaches exactly one share, but every <em>other</em> stock rounds <em>down</em> from its fractional
-target at that point, so the cash you actually need is strictly less. The gap grows with the number
-of holdings and the spread of their weights.</p>
-<p>The corrected version reproduces a minimum investment amount smallcase publishes for one of its
-own baskets — <span class="mono">₹385</span>, from a true cost of
-<span class="mono">₹384.7156</span> — to the rupee. That is how we know it's right rather than
-merely plausible, and it's the regression test in <span class="mono">selfTest()</span>.</p>
-<p>The last step rounds <em>up</em>, and that direction is not arbitrary: a minimum that rounded
-down would be short of its own basket. Publish <span class="mono">₹384</span> for a basket that
+floor at all. The workbench's minimum is the smallest amount its own rounding can fund:</p>
+<pre>qty     = round(amount × weight / price)             for every stock, as in 02
+minimum = the smallest amount where every qty ≥ 1 and Σ (qty × price) ≤ amount</pre>
+<p>Below that, a stock gets no share at all or the orders cost more than you typed. Most tools
+quietly drop the stock and hand you a more concentrated portfolio than you asked for. This one
+refuses, and says which stock set the floor. On the sample basket the minimum is
+<span class="mono">₹12,554</span>: 1 RELIANCE, 1 TCS, 2 HDFCBANK and 7 NTPC, costing
+<span class="mono">₹12,553.40</span>.</p>
+<p>The workbench searches for that amount rather than solving for it, because the closed forms were
+wrong. We shipped <span class="mono">max(price / weight)</span> at the start, the point where the
+binding stock reaches exactly one share, and it overstated the floor —
+<span class="mono">₹14,809</span> against <span class="mono">₹12,554</span> on the sample — and
+refused amounts that buy a perfectly complete basket. Every <em>other</em> stock rounds
+<em>down</em> from its fractional target at that point, so the cash you actually need is less. The
+gap grows with the number of holdings and the spread of their weights.</p>
+<p>Rounding those other stocks down and adding up the bill gives a floor formula:
+<span class="mono">round up ( Σ price × round down ( scale × weight / price ) )</span>, with
+<span class="mono">scale = max(price / weight)</span>. It reproduces a minimum investment amount
+smallcase publishes for one of its own baskets — <span class="mono">₹385</span>, from a true cost of
+<span class="mono">₹384.7156</span> — to the rupee, and that is the regression test in
+<span class="mono">selfTest()</span>. It is <em>not</em> the amount the workbench refuses below:
+it rounds every stock down while the orders round to the nearest share, so on a real sheet it can
+name an amount the orders then overspend, or one well above what they need. On the sample basket it
+says <span class="mono">₹12,905</span>, ₹351 more than the orders need.</p>
+<p>The formula's last step rounds <em>up</em>, and that direction is not arbitrary: a minimum that
+rounded down would be short of its own basket. Publish <span class="mono">₹384</span> for a basket that
 costs <span class="mono">₹384.72</span> and someone who invests exactly the stated minimum cannot
-buy it — the same defect as overstating, just a rupee wide instead of ₹12,714. So the inner step
+buy it — the same defect as overstating, just a rupee wide instead of ₹2,255. So the inner step
 rounds down (you cannot buy part of a share) and the outer step rounds up (you must cover the
 whole bill).</p>
 <p style="font-size:13.5px;color:var(--tx2)">Honest caveat: smallcase documents the
@@ -211,12 +220,12 @@ resolution of the whole basket:</p>
 <table>
   <thead><tr><th>Your holding</th><th class="r">One share of TCS moves the basket</th><th>Verdict</th></tr></thead>
   <tbody>
-    <tr><td class="mono">₹29,127 (2×)</td><td class="r mono bad">12.71 pp</td><td>unusable as a shared sheet</td></tr>
-    <tr><td class="mono">₹1,48,090 (10×)</td><td class="r mono">2.50 pp</td><td>borderline</td></tr>
-    <tr><td class="mono">₹3,98,055 (27×)</td><td class="r mono good">0.93 pp</td><td>fine to share</td></tr>
+    <tr><td class="mono">₹29,127</td><td class="r mono bad">12.71 pp</td><td>unusable as a shared sheet</td></tr>
+    <tr><td class="mono">₹1,48,709</td><td class="r mono">2.49 pp</td><td>borderline</td></tr>
+    <tr><td class="mono">₹3,98,055</td><td class="r mono good">0.93 pp</td><td>fine to share</td></tr>
   </tbody>
 </table>
-<p>At 2× the minimum a position is literally <span class="mono">3, 2, 4, 17</span> shares. A five
+<p>At ₹29,127 a position is literally <span class="mono">3, 2, 4, 17</span> shares. A five
 point change in target weight produced <b>zero orders</b> — the rounding was larger than the
 rebalance. Small holdings can't express fine instructions.</p>
 
@@ -226,9 +235,9 @@ the manager's exact intent — they're the closest thing expressible at that wal
 <table>
   <thead><tr><th>Publisher's holding</th><th class="r">Error baked into the sheet they share</th></tr></thead>
   <tbody>
-    <tr><td class="mono">2×</td><td class="r mono bad">5.42 pp</td></tr>
-    <tr><td class="mono">5×</td><td class="r mono">0.54 pp</td></tr>
-    <tr><td class="mono">27×</td><td class="r mono good">0.36 pp</td></tr>
+    <tr><td class="mono">2×</td><td class="r mono bad">2.47 pp</td></tr>
+    <tr><td class="mono">5×</td><td class="r mono">0.86 pp</td></tr>
+    <tr><td class="mono">32×</td><td class="r mono good">0.20 pp</td></tr>
     <tr><td class="mono">200×</td><td class="r mono good">0.04 pp</td></tr>
   </tbody>
 </table>
@@ -250,9 +259,9 @@ always sold in full regardless of <span class="mono">k</span>. Part-exiting leav
 account forever, which is worse than either finishing or not starting.</p>
 
 <h3>Unsettled shares count as held</h3>
-<p>Buy today and the broker reports <span class="mono">quantity: 0, t1_quantity: 9</span> until
-settlement. Read only the quantity column and a just-executed rebalance looks like it never
-happened, so the next run tells you to buy the whole position <b>again</b>. Both holdings parsers
+<p>Buy in one session and, until it settles, the next session's holdings report
+<span class="mono">quantity: 0, t1_quantity: 9</span>. Read only the quantity column and a rebalance
+you just executed looks like it never happened, so the next run tells you to buy the whole position <b>again</b>. Both holdings parsers
 add T1 to the settled quantity.</p>
 
 <h2><span class="n">06</span>State, not events</h2>
@@ -278,8 +287,8 @@ a different one:</p>
       belongs to a larger position. Flagged, with the advice to ask for the sender's sheet.</li>
 </ul>
 <p>Without those checks the result is not an error message — it is a plausible-looking basket with
-a stock missing. A <span class="mono">SELL 5</span> sized for a 27× holding exactly cancels a 5×
-holder's entire position, so the stock silently disappears and the sheet claims one fewer holding
+a stock missing. A <span class="mono">SELL 5</span> sized for the ₹4,00,000 holding exactly cancels the
+₹80,000 holder's entire position, so the stock silently disappears and the sheet claims one fewer holding
 than the manager published.</p>
 
 <div class="warn"><b>One thing the sheet cannot fix.</b> A stock held through two different

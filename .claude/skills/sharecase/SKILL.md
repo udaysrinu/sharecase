@@ -5,7 +5,7 @@ description: Use when analysing a Zerodha Kite portfolio, building the folio das
 
 # sharecase
 
-Local Kite portfolio analytics + portable basket sheets. Full detail in `README.md` — read it before a first run. This file is the operating order.
+Local Kite portfolio analytics + portable basket sheets. Full detail in `docs/GUIDE.md` — read it before a first run. This file is the operating order.
 
 ## Before anything
 
@@ -19,7 +19,7 @@ python3 build_dashboard.py <tradebook.xlsx|.csv> --holdings _holdings.json --pre
 python3 -m http.server 8787      # then open dashboard.html
 ```
 
-- `_holdings.json` is built from `get_holdings` (schema in README). Set each position's `grp` from `_smallcase_map.json` so the dashboard splits by basket.
+- `_holdings.json` is built from `get_holdings` (schema in `docs/GUIDE.md#holdingsjson-format`). Set each position's `grp` from `_smallcase_map.json` so the dashboard splits by basket.
 - The tradebook must be downloaded manually from Console — **there is no API for it**. If the user's realised numbers look stale, that's why: tell them to re-download and drag it onto the page.
 - `--pre` is realised P&L booked before the tradebook window (from Console → Reports → P&L).
 
@@ -29,7 +29,7 @@ Kite holdings carry **no** basket field. The link exists only in **order tags**,
 
 1. On the day a basket executes, call `get_orders`.
 2. Group orders by their **shared** second tag (each order also has a unique random first tag).
-3. Persist to `_smallcase_map.json` (schema in README) — **this is unrecoverable if missed.**
+3. Persist to `_smallcase_map.json` (schema in `docs/GUIDE.md#batch-map-reference`) — **this is unrecoverable if missed.**
 
 If the user mentions a smallcase/basket bought today, capture this *before* doing anything else.
 
@@ -46,7 +46,9 @@ python3 basket.py orders <sheet.json> <amt> # anyone's sheet → your order list
 python3 basket.py demo                      # self-check
 ```
 
-Sheets carry **weights, not share counts** — weights survive different capital and different prices.
+Sheets are sized from **weights, not share counts** — weights survive different capital and different prices.
+Sheets built from an order email or holdings file also carry the sender's real `shares`, which reveal
+their position; say so before the user shares one.
 
 ## Own baskets / rebalancing
 
@@ -69,6 +71,8 @@ No Python, no server, no broker connection.
 
 - `exchange=NSE`, `product=CNC`, `order_type=LIMIT` for delivery.
 - **Prefer LIMIT over MARKET on illiquid names.** Check `get_quotes` depth first — thin small-caps have shallow books and a market order walks them.
+- **LIMIT works through the MCP; off-tick prices do not.** A bare "Failed to place order" on a LIMIT means a price in stray paise that is not on the stock's tick. Use whole rupees or a valid exchange tick; above ~₹5,000 the tick is ₹0.50 or more, so a one-decimal price can be rejected.
+- **Unsettled shares count as held.** Previous-session buys not yet settled appear as `t1_quantity` in `get_holdings`; today's buys are only in `get_positions`.
 - **Reconcile sell exposure before placing.** GTTs are *not* validated against holdings at placement, so a new stop plus existing GTTs can exceed shares held and oversell. Sum all pending sells first.
 - A GTT is a **static** trigger, not a trailing stop. "Trailing" means the agent ratchets the trigger up manually — never down.
 

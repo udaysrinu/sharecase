@@ -36,9 +36,9 @@
     }
    ]
   },
-  "ENERGY_SAMPLE": {
-   "tag": "ENERGY",
-   "label": "Energy & Infra",
+  "POWER_SAMPLE": {
+   "tag": "POWER",
+   "label": "Power & Utilities",
    "executed": "2026-06-10",
    "holdings": {
     "NTPC": {
@@ -71,9 +71,9 @@
     }
    ]
   },
-  "SELF_SAMPLE": {
-   "tag": "SELF",
-   "label": "Self-managed",
+  "PICKS_SAMPLE": {
+   "tag": "PICKS",
+   "label": "Hand-picked",
    "executed": "2026-05-20",
    "holdings": {
     "ITC": {
