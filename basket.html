@@ -339,7 +339,7 @@ document.querySelectorAll('.ftnav a[data-p]').forEach(function(a){
 </div>
 <textarea id="paste" aria-label="Paste basket sheet JSON" placeholder='If it was sent to you as a message rather than a file, paste the text here.
 It looks like this:
-{"label":"My Basket","theme":"Defence","risk":"high",
+{"label":"My Basket","theme":"IT","risk":"medium",
  "weights":{"INFY":60,"TCS":40},
  "prices":{"INFY":1420.5,"TCS":3850}}'></textarea>
 <div class="row" style="margin-top:10px">
@@ -441,7 +441,7 @@ It looks like this:
   <textarea id="hpaste" aria-label="Paste your holdings" style="min-height:96px;margin-top:11px" placeholder="…or just copy the holdings table from your broker and paste it here.
 
 Select the rows in Kite → Holdings, copy, paste. One line per stock:
-   AXISCADES   32   1,554.93   1,543.40
+   ITC         40     412.35     418.90
 Headers optional. It reads the symbol, the quantity, and a price if present."></textarea>
   <div class="row" style="margin-top:10px">
     <button class="pri" onclick="pasteHoldings()">Use pasted holdings</button>
@@ -461,24 +461,24 @@ Select the WHOLE email — the Order Type line is what tells me whether this is 
 basket or a set of changes:
 
    Order Type   Buy Value    Sell Value
-   Rebalance    ₹38,085.95   ₹35,914.55
+   Rebalance    ₹12,098.40   ₹10,321.25
 
    Stock        Qty        Type   Avg. Price
-   ZENTEC       12 of 12   BUY      1,826.40
-   POWERGRID    25 of 25   SELL       316.85
+   INFY         8 of 8     BUY      1,512.30
+   ITC          25 of 25   SELL       412.85
 
 Invest = the whole basket. Rebalance = only the changes, so load the earlier basket on
 the other tab first. If you only paste the orders table I can still tell, because an
 Invest never sells.
 
-Rows read as: 12 of 12 filled at that price. A row showing 0 of N never filled. A row
+Rows read as: 8 of 8 filled at that price. A row showing 0 of N never filled. A row
 that filled at a price of 0 is inconsistent — the sheet says so and tells you where to
 get the real price. Everything else in the email is ignored."></textarea>
     <div class="row" style="margin-top:12px">
       <input id="mlabel" aria-label="Basket name, required" required
-        placeholder="Basket name — e.g. Railways &amp; Defence" style="flex:1;min-width:190px">
+        placeholder="Basket name — e.g. Large cap core" style="flex:1;min-width:190px">
       <input id="mtheme" aria-label="Theme, optional — used as the name if you leave the name blank"
-        placeholder="Theme — e.g. Defence" style="width:170px">
+        placeholder="Theme — e.g. Large cap" style="width:170px">
       <button class="pri" onclick="fromEmail()">Read the email</button>
     </div>
     <div class="note">Fully offline — the text never leaves this page. This is the easiest route:
@@ -616,9 +616,9 @@ const missingPx=(w,p)=>Object.keys(w).filter(s=>!(p[s]>0));
 // Cheapest amount that still buys one whole share of EVERY stock.
 // max(p/w) is only the notional value at the scale where the priciest-per-weight stock reaches
 // exactly 1 share — every other stock floors DOWN from its fractional target, so the cash actually
-// needed is strictly less. Using max(p/w) directly overstated this basket's floor by 9.2% and
-// wrongly blocked amounts that buy a complete basket. Verified against smallcase's own published
-// minInvestAmount values (385 and 579) — see selfTest().
+// needed is strictly less. Using max(p/w) directly overstated a real sheet's floor by several
+// thousand rupees and wrongly blocked amounts that buy a complete basket. Verified against
+// smallcase's own published minInvestAmount values (385 and 579) — see selfTest().
 // The scale where the priciest-per-weight stock reaches exactly one share, with every other stock
 // floored. This is smallcase's definition and it reproduces their published minInvestAmount (385,
 // 579) — but it is NOT what this app can promise, because it floors while size() rounds. Kept
@@ -634,10 +634,10 @@ const latticeScale=(w,p)=>{const k=priced(w,p); if(!k.length) return 0;
 // that actually places them — size(), which ROUNDS — not by a closed form that floors.
 //
 // Measured on two real sheets, the closed form failed both ways: on a 25-stock sheet it said
-// Rs1,05,751 while size() spent Rs1,14,090 (Rs8,339 short, so Kite would reject for insufficient
-// funds), and on a 15-stock sheet it said Rs1,37,894 when a complete basket was fundable at
-// Rs1,24,505 (Rs13,389 too high, blocking valid amounts). A minimum you cannot fund is worse than
-// no minimum at all, so this searches rather than solves.
+// several thousand rupees less than size() then spent (short, so Kite would reject for insufficient
+// funds), and on a 15-stock sheet it said over ten thousand rupees more than a complete basket
+// needed (too high, blocking valid amounts). A minimum you cannot fund is worse than no minimum at
+// all, so this searches rather than solves.
 const minUnit=(w,p)=>{
   const k=priced(w,p); if(!k.length) return 0;
   const tot=k.reduce((a,s)=>a+w[s],0); if(!(tot>0)) return 0;
@@ -676,12 +676,12 @@ function selfTest(){
   {const w={A:29.19,B:70.81},p={A:169.00,B:410.02};
    size({weights:w,prices:p},minUnit(w,p)).rows.forEach(r=>eq(r.q,1,`ICICINIFTY+JUNIORBEES ${r.s} qty`));}
   // the minimum must actually buy a complete basket under size()'s own rounding
-  const w={A:7.03,B:5.97,C:11.01,D:75.99},p={A:10587.67,B:1687.05,C:155.60,D:410.02};
+  const w={A:7,B:6,C:11,D:76},p={A:9876.50,B:1234.50,C:150.25,D:405.75};   // invented; same shape: one very dear stock at a small weight
   const m=minUnit(w,p);
   size({weights:w,prices:p},m).rows.forEach(r=>{ if(r.q<1) throw new Error(`min ${m} leaves ${r.s} at ${r.q} shares`); });
   // THE promise a minimum must keep: fund exactly this and the orders fit. Both halves, because the
-  // old closed form broke each of them on a different real sheet — Rs8,339 short on one, Rs13,389
-  // too high on another.
+  // old closed form broke each of them on a different real sheet — thousands of rupees short on one,
+  // thousands too high on another.
   const z=size({weights:w,prices:p},m);
   z.rows.forEach(r=>{ if(r.q<1) throw new Error(`min ${m} leaves ${r.s} at ${r.q} shares`); });
   if(z.cost>m) throw new Error(`min ${m} cannot be funded: sizing spends ${Math.round(z.cost)}`);
@@ -700,32 +700,33 @@ function selfTest(){
   if(multiplier({A:1,B:1,C:1},{A:9,B:21,C:36}).near===0)
     throw new Error('rounded a fractional multiple down to 0x');
   // Why snapping exists at all. When you hold a clean multiple, the exact target IS m × the share
-  // counts; sizing THROUGH 2-decimal weights loses information and can miss by a share. Real case
-  // from the Defence sheet — JWL 86 @ ₹261.98 stores as 4.98%, and at 8 copies value-based sizing
-  // says 687 where the truth is 688: a spurious 1-share SELL on a position that should not move.
-  // It is a rounding repair, not a drift fix — with exact weights the two agree everywhere.
-  {const sq={A:86,B:429456}, spx={A:261.98,B:1}, swt={A:4.98,B:95.02};
+  // counts; sizing THROUGH 2-decimal weights loses information and can miss by a share. Invented
+  // numbers, same shape as the real case: 90 shares @ ₹412.30 stores as 5.03%, and at 8 copies
+  // value-based sizing says 719 where the truth is 720: a spurious 1-share SELL on a position that
+  // should not move. It is a rounding repair, not a drift fix — with exact weights the two agree.
+  {const sq={A:90,B:700000}, spx={A:412.30,B:1}, swt={A:5.03,B:94.97};
    const book=Object.keys(sq).reduce((a,s)=>a+sq[s]*spx[s],0), val=8*book;
-   eq(Math.round(val*(swt.A/100)/spx.A),687,'value-based sizing loses a share to weight rounding');
-   eq(8*sq.A,688,'snapping to the multiple keeps it');}
+   eq(Math.round(val*(swt.A/100)/spx.A),719,'value-based sizing loses a share to weight rounding');
+   eq(8*sq.A,720,'snapping to the multiple keeps it');}
   // ---- NSE series suffixes ----
-  // Real failure: a friend's basket rejected MTARTECH because the sheet said MTARTECH while the
-  // position was MTARTECH-BE, a different instrument in the Trade-to-Trade series.
+  // Real failure: a friend's basket was rejected because the sheet named the bare symbol while the
+  // position was its -BE variant, a different instrument in the Trade-to-Trade series. Invented
+  // symbols and counts below.
   {const save=HELD;
-   HELD={'MTARTECH-BE':4,'GRSE':12,'APOLLO':39};
-   eq(nseSymbol('MTARTECH'),'MTARTECH-BE','bare symbol resolves to the held -BE variant');
-   eq(nseSymbol('GRSE'),'GRSE','a held exact symbol is never remapped');
+   HELD={'ACME-BE':5,'SBIN':10,'ITC':20};
+   eq(nseSymbol('ACME'),'ACME-BE','bare symbol resolves to the held -BE variant');
+   eq(nseSymbol('SBIN'),'SBIN','a held exact symbol is never remapped');
    eq(nseSymbol('NOTHELD'),'NOTHELD','an unheld symbol is left alone');
    HELD={'FOO-BE':1,'FOO-BZ':1};
    eq(nseSymbol('FOO'),'FOO','ambiguous variants must NOT be guessed between');
-   HELD={'MTARTECH':4,'MTARTECH-BE':4};
-   eq(nseSymbol('MTARTECH'),'MTARTECH','holding both series keeps the exact match');
+   HELD={'ACME':5,'ACME-BE':5};
+   eq(nseSymbol('ACME'),'ACME','holding both series keeps the exact match');
    HELD=null;
-   eq(nseSymbol('MTARTECH'),'MTARTECH','no holdings file means no remapping');
+   eq(nseSymbol('ACME'),'ACME','no holdings file means no remapping');
    HELD=save;}
-  eq(t2t('MTARTECH-BE'),true,'-BE is trade-to-trade');
-  eq(t2t('INDIGRID-IV'),false,'-IV is a normal series, not T2T');
-  eq(t2t('GRSE'),false,'plain symbol is not T2T');
+  eq(t2t('ACME-BE'),true,'-BE is trade-to-trade');
+  eq(t2t('ACME-IV'),false,'-IV is a normal series, not T2T');
+  eq(t2t('SBIN'),false,'plain symbol is not T2T');
   // ---- forwarded rebalance email ----
   const prior={A:10,B:20};
   eq(emailMultiplier([{sym:'A',q:30}],prior).bound,3,'sell 30 of 10 held => bound 3');
@@ -823,8 +824,9 @@ function load(obj){
   setTimeout(()=>{fit($('pxin'));},0);
   const qp=(mu>0&&!need.length)?quickPicks(mu):[];
   // Name the cheapest EXACT amount next to the minimum. The minimum is only the cheapest that
-  // works — on a real sheet it saved 13% of the money and cost 100× the drift, so presenting it
-  // alone as the headline reads as a recommendation when it is a lower bound.
+  // works — on a real sheet it saved a modest slice of the money and cost two orders of magnitude
+  // more drift, so presenting it alone as the headline reads as a recommendation when it is a lower
+  // bound.
   const exact=qp.find(o=>o.drift<0.01);
   $('minhint').innerHTML = need.length ? need.length+' price(s) missing'
     : 'minimum ≈ '+M(mu)+(exact&&exact.amt!==mu?` · exact at <b>${M(exact.amt)}</b>`:'');
@@ -875,8 +877,8 @@ function driftAt(a){
 // sit on an integer lattice: at most amounts you can only approximate them, but at particular
 // amounts the integers land exactly. Those amounts are worth finding rather than stumbling on.
 //
-// The old version scanned +/-6%, which is why it never found the 12.5% jump that took a real
-// basket from 0.751pp to 0.004pp.
+// The old version scanned +/-6%, which is why it never found an exact amount a little over 10%
+// away, where a real basket's drift fell from most of a point to effectively zero.
 // The value a sheet's own share counts add up to. At that figure the integers reproduce themselves,
 // so drift is ~0 by construction. Null when the sheet carries no share counts.
 function naturalAmount(sheet){
@@ -886,8 +888,9 @@ function naturalAmount(sheet){
 }
 // Quick picks were [1, 1.5, 2, 3, 5, 10] × the minimum. Measured on two real sheets that is close to
 // arbitrary: drift is a SAWTOOTH in the amount, so fixed multiples land wherever rounding falls
-// (0.11–1.78pp), and on a real 25-stock sheet the 1.5× button sat near a local PEAK while an amount
-// only 13% above the minimum drifted 100× less (0.005pp vs 0.562pp). Offer the valleys instead — the
+// (anywhere from a tenth of a point to nearly two), and on a real 25-stock sheet the 1.5× button sat
+// near a local PEAK while an amount only a little above the minimum drifted about a hundredth as
+// much. Offer the valleys instead — the
 // best amount inside each budget band — and print each one's drift on the button, so choosing a
 // cheaper basket is visibly a trade rather than a free saving.
 function quickPicks(floor){
@@ -905,7 +908,7 @@ function quickPicks(floor){
   const nat=naturalAmount(SHEET);            // always offer the exact amount, even outside the bands
   if(nat){ const d=driftAt(nat); if(d!==null) out.push({amt:nat,drift:d,nat:true}); }
   out.sort((a,b)=>a.amt-b.amt);
-  // Collapse near-duplicates: ₹1,19,000 and ₹1,19,967 are the same decision to a human, and a band
+  // Collapse near-duplicates: ₹2,40,000 and ₹2,41,350 are the same decision to a human, and a band
   // scan lands next to the natural amount often. Keep the better of the two, preferring the natural
   // amount on a tie because that is the figure whoever shared the sheet actually holds.
   const keep=[];
@@ -917,10 +920,10 @@ function quickPicks(floor){
   }
   return keep.slice(0,6);
 }
-// "1.06pp" is both opaque and alarmist: pp means percentage points, and this figure is the SINGLE
-// worst-placed stock, while the average holding is usually three times closer. Measured on the real
-// 15-stock basket at its floor: worst 1.06pp, average 0.34pp, and what a person actually wants to
-// know is that Rs3,465 of Rs1,37,465 is sitting in the wrong stock. So report the money.
+// "1.1pp" is both opaque and alarmist: pp means percentage points, and this figure is the SINGLE
+// worst-placed stock, while the average holding is usually three times closer — as it was on a real
+// 15-stock basket at its floor, where what a person actually wanted to know was that a few thousand
+// rupees of the basket was sitting in the wrong stock. So report the money.
 // misplaced = sum of the POSITIVE deviations = half the total absolute deviation = the fraction of
 // the basket that is in the wrong place. In rupees that needs no unit to be explained.
 function misfit(rows,cost){
@@ -1138,11 +1141,11 @@ function dropKey(){
 // "Invalid api_key" on Kite's own page with no clue which value was sent. This is that clue.
 const KITE_BASKET_URL='https://kite.zerodha.com/connect/basket';
 // NSE lists some counters in a second series under a SUFFIXED tradingsymbol, and those are different
-// instruments: MTARTECH-BE (Trade-to-Trade) is not MTARTECH (EQ), so an order for the bare name is
+// instruments: ACME-BE (Trade-to-Trade) is not ACME (EQ), so an order for the bare name is
 // rejected. A sheet carries whatever name its author typed; a holdings file carries the authoritative
 // one. So when the sheet's bare symbol is not held but exactly one suffixed variant is, order that.
-// Real case: a friend's basket failed on MTARTECH because the sheet said MTARTECH and the position
-// was MTARTECH-BE. Only remap when there is exactly one candidate — never guess between two.
+// Real case: a shared basket failed because the sheet named the plain series and the position was held
+// in the -BE series. Only remap when there is exactly one candidate — never guess between two.
 function nseSymbol(s){
   if(!HELD||HELD[s]>0) return s;
   const v=Object.keys(HELD).filter(k=>HELD[k]>0&&k!==s&&k.split('-')[0]===s);
@@ -1272,8 +1275,8 @@ let HELD=null;                       // last parsed holdings, so the cash box ca
 // The sheet's share vector is a lattice point: m copies of it reproduce the sheet's weights EXACTLY
 // for any integer m, because scaling every count by m scales value by m and leaves every ratio
 // alone. So when a holding is a clean multiple, snapping to it is exact (~0.00pp) where value-based
-// sizing lands wherever the rounding falls (1.06pp on the real basket). That is the only reason to
-// measure m — it is NEVER a factor applied to a value-based target, which already carries it.
+// sizing lands wherever the rounding falls (about a point off on a real basket). That is the only
+// reason to measure m — it is NEVER a factor applied to a value-based target, which already carries it.
 function multiplier(held,shares){
   const k=Object.keys(shares||{}).filter(s=>shares[s]>0&&(held[s]||0)>0);
   if(k.length<2) return null;
@@ -1491,7 +1494,7 @@ function pasteHoldings(){
 }
 
 // Split one CSV line, respecting double quotes. Needed because a Kite export writes
-// large numbers as "1,554.93" — splitting naively on commas shifts every later column.
+// large numbers as "2,965.50" — splitting naively on commas shifts every later column.
 function splitCSV(line){
   const out=[]; let cur='', q=false;
   for(let i=0;i<line.length;i++){
@@ -2127,7 +2130,7 @@ function sheetFromHoldings(rows){
 // sheet is already loaded, its own symbol list is the filter that makes the result mean "this basket,
 // as I actually hold it now" instead of "everything I own".
 function scopeToBasket(sheet,keep){
-  // Match on the BASE symbol, so a sheet asking for MTARTECH finds a held MTARTECH-BE. NSE series
+  // Match on the BASE symbol, so a sheet asking for ACME finds a held ACME-BE. NSE series
   // suffixes mean the sheet's name and the tradeable name legitimately differ (see nseSymbol), and
   // an exact match silently dropped the position from the basket it plainly belongs to. The held
   // name is the one kept, because that is the instrument that actually exists.

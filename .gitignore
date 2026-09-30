@@ -1,6 +1,6 @@
 # ---- YOUR DATA — never commit ----
 # Patterns are deliberately loose: '*_sheet.json' missed
-# 'defense_sheet rebalance stocks.json' and 'tradebook*.csv' missed 'test_tradebook.csv'.
+# 'my_sheet rebalance.json' and 'tradebook*.csv' missed 'test_tradebook.csv'.
 *sheet*.json
 *sheet*.md
 *tradebook*
@@ -21,6 +21,16 @@ taxpnl*.xlsx
 JOURNAL.md
 CURRENT_STATE.md
 TRADING_PLAN.md
+
+# Filenames the guide's workflows tell you to create, any CSV export and any orders dump. They hold
+# YOUR positions. The underscore-prefixed forms above were covered; these plain ones were not. Placed
+# BEFORE the samples re-include so the committed fake CSVs stay tracked.
+holdings.json
+fills.json
+prices.json
+weights.json
+*.csv
+orders*.json
 
 # keep the fakes
 !samples/*

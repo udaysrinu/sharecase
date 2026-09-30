@@ -7,7 +7,7 @@ USAGE
 
 OPTIONS
   --holdings holdings.json   Live holdings (from Kite get_holdings) for unrealised P&L
-  --pre <amount>             Pre-window booked realised P&L not in this file (e.g. 120000)
+  --pre <amount>             Pre-window booked realised P&L not in this file (e.g. 50000)
   --out live.json            Output data file the dashboard reads (default: live.json)
   --updated "TEXT"           "Last updated" stamp shown on the dashboard
 

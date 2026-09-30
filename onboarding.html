@@ -185,7 +185,7 @@ plan covers it — pick the <b>Publisher</b> app type.</p>
     <p>Paste this exactly:</p>
     <p class="mono" id="redir" style="margin-top:6px;color:var(--tx)">https://sharecase-mu.vercel.app/</p>
     <!-- Filled from location.origin, so a self-hosted copy shows ITS OWN address. The hard-coded value
-         used to be sharecase.vercel.app, an unrelated site: anyone registering it sent their Kite
+         used to point at an unrelated vercel.app site: anyone registering it sent their Kite
          request_token to a stranger. The static text above is only the fallback for file:// -->
     <script>if(/^https?:$/.test(location.protocol))document.getElementById('redir').textContent=location.origin+'/';</script>
     <p style="margin-top:6px">Kite sends you back here after you confirm the basket. It must match

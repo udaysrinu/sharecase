@@ -21,7 +21,14 @@ for amt in (400000, 80000):
         if f'{pct[s]:.1f}%' not in html:
             bad.append(f'{s} @ {amt}: html should say {pct[s]:.1f}%')
 
-mn = math.ceil(max(P[s] / (W[s] / 100) for s in W))
+# The minimum the Workbench actually enforces (basket.html minUnit): the smallest whole-rupee amount at
+# which size() gives every stock at least one share AND the orders cost no more than the amount. The
+# check used to compute ceil(max(price / weight)) - a closed form basket.html's own comments call wrong -
+# so it guarded a Rs 12,720 floor the page never applied: Rs 10,000 sizes this basket without complaint.
+def fundable(a):
+    rows = {s: round(a * W[s] / 100 / P[s]) for s in W}          # size()'s rounding, without its weights
+    return all(q >= 1 for q in rows.values()) and sum(rows[s] * P[s] for s in W) <= a
+mn = next(a for a in range(1, 10**7) if fundable(a))
 if f'{mn:,}' not in html:
     bad.append(f'minimum should read Rs {mn:,}')
 

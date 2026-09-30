@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>sharecase — shareable stock baskets, sized to your capital</title>
-<meta name="description" content="Someone shares a stock basket; you get your own buy list. Weights travel, share counts don't. Runs entirely in your browser — no account, no server, nothing uploaded.">
+<meta name="description" content="Someone shares a stock basket; you get your own buy list. Weights travel, share counts don't. Runs in your browser — no account, nothing uploaded; only stock symbols go to this app's own /api/price.">
 <style>
 /* ---------- type: self-hosted, latin subset. Direction B ---------- */
 @font-face{font-family:'IBM Plex Sans';src:url(fonts/plex-sans-400.woff2)format('woff2');
@@ -193,7 +193,7 @@ document.querySelectorAll('.ftnav a[data-p]').forEach(function(a){
   if(a.getAttribute('data-p')===f){a.classList.add('on');a.setAttribute('aria-current','page');}});})();</script>
 <div class="wrap">
 
-<div class="pill a">Runs entirely in your browser</div>
+<div class="pill a">Runs in your browser</div>
 <h1>Someone shares a basket. You get your own buy list.</h1>
 <p class="lede">A basket is a list of stocks and <b>target percentages</b> — not share counts.
 Type what you want to invest and sharecase turns those percentages into exact whole-share
@@ -202,7 +202,8 @@ orders at <b>your</b> capital, not theirs.</p>
   <a class="cta" href="basket.html">Open the workbench</a>
   <a class="ghost" href="friends.html">New to this? Read the 2-minute guide</a>
 </div>
-<p class="smallprint">No account. No server. Nothing uploaded. Not investment advice.</p>
+<p class="smallprint">No account. Nothing uploaded — only stock symbols go to this app's own
+<span class="mono">/api/price</span>. Not investment advice.</p>
 
 <h2>How it works</h2>
 <div class="steps">
@@ -258,7 +259,7 @@ orders at <b>your</b> capital, not theirs.</p>
     Notice the weights aren't identical either. Whole shares don't divide evenly, so the smaller
     amount drifts further from target — <b>1.2 points</b> at ₹80,000 versus <b>0.3</b> at ₹4,00,000.
     The page shows you that drift rather than hiding it, and below this basket's minimum of
-    <span class="mono">₹12,720</span> it stops you instead of quietly dropping TCS.
+    <span class="mono">₹9,290</span> it stops you instead of quietly dropping TCS.
     <span class="note">(Illustrative prices.)</span></p>
 </div>
 
@@ -266,9 +267,10 @@ orders at <b>your</b> capital, not theirs.</p>
 <div class="lim">
   <div class="lrow">
     <svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 4-6"/><path d="M17 4h4v4" opacity=".4"/></svg>
-    <div><b>Fetch live prices</b>
-      <p>A page with no server can't call an exchange, and browsers block it anyway. Prices come
-         from the sheet you were sent, or you type them from your broker app.</p></div>
+    <div><b>Send your holdings anywhere</b>
+      <p>Live prices come from this app's own <span class="mono">/api/price</span>, and only stock
+         symbols go to it — never quantities, amounts or files. Or skip it and use the sheet's
+         prices, or type them from your broker app.</p></div>
   </div>
   <div class="lrow">
     <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>

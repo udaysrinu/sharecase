@@ -11,7 +11,7 @@
 Sheet schema (this is the whole format):
   {"label":"Basket name", "asof":"YYYY-MM-DD",
    "weights":{"SYM": 11.0, ...},     # percent, need not sum to exactly 100
-   "prices" :{"SYM": 1543.4, ...}}   # reference price per symbol
+   "prices" :{"SYM": 2965.5, ...}}   # reference price per symbol
 """
 import json, sys, math
 
@@ -38,14 +38,14 @@ def min_unit(w, p):
     """smallcase-style minimum: the scale where the binding stock reaches one share, others floored.
 
     NOTE this is NOT what basket.html now shows. The browser searches for the smallest amount its own
-    allocator can FUND (it rounds, this floors), which differs materially: Rs72,477 vs Rs1,05,751 on
-    a real 25-stock sheet. This stays because it reproduces smallcase's published minInvestAmount.
+    allocator can FUND (it rounds, this floors), which differs materially: by about a third on a
+    real 25-stock sheet. This stays because it reproduces smallcase's published minInvestAmount.
 
     max(price / weight) is NOT the answer — that is only the notional value at the scale where the
     priciest-per-weight stock reaches exactly one share. Every OTHER stock floors down from its
     fractional target at that scale, so the cash actually required is strictly less. Using it
-    directly overstated a real 15-stock basket by Rs12,714 (9.2%) and refused amounts that buy a
-    complete basket. Reproduces smallcase's own published minInvestAmount of 385 (see self_test).
+    directly overstated a real 15-stock basket by several thousand rupees and refused amounts that
+    buy a complete basket. Reproduces smallcase's own published minInvestAmount of 385 (see self_test).
 
     Outer op is ceil, not floor: a minimum that rounds DOWN is short of its own basket.
     """

@@ -12,8 +12,8 @@
 // for other hosts (a local dev server, or a GitHub Pages mirror). No env vars, no secrets, nothing
 // to rotate.
 //
-//   GET /api/price?symbols=GRSE,JWL,DYNAMATECH
-//   -> {"prices":{"GRSE":2600.1,"JWL":251.85},"missing":["DYNAMATECH"],"asof":"2026-08-17T…"}
+//   GET /api/price?symbols=RELIANCE,TCS,NOTREAL
+//   -> {"prices":{"RELIANCE":2965.5,"TCS":3702.1},"missing":["NOTREAL"],"asof":"2026-01-01T…"}
 
 const MAX_SYMBOLS = 60;      // one basket is ~25; a cap keeps a stray loop from burning the free tier
 const TIMEOUT_MS  = 8000;
@@ -31,10 +31,10 @@ const ALLOWED = [
   'http://localhost:3000',
 ].filter(Boolean);
 
-// NSE series suffixes. The broker's tradeable symbol carries them (MTARTECH-BE, E2E-BE) but Yahoo
-// indexes only the base name — MTARTECH-BE.NS is a 404 while MTARTECH.NS returns a price. Verified
-// against Yahoo, not assumed. The list is an allowlist on purpose: INDIGRID-IV.NS DOES resolve, so
-// stripping everything after a hyphen would break a holding that currently works.
+// NSE series suffixes. The broker's tradeable symbol carries them (ACME-BE, FOO-BE) but Yahoo
+// indexes only the base name — ACME-BE.NS is a 404 while ACME.NS returns a price. Verified
+// against Yahoo, not assumed. The list is an allowlist on purpose: InvIT series such as FOO-IV.NS DO
+// resolve, so stripping everything after a hyphen would break an instrument that currently works.
 const SERIES = /-(BE|BZ|BL|SM|ST|IL|GB|GS)$/;
 
 async function yahooPrice(sym) {
@@ -85,7 +85,7 @@ export default async function handler(req, res) {
   if (!raw) return res.status(400).json({ error: 'pass ?symbols=A,B,C' });
 
   // Uppercase, dedupe, and keep only plausible NSE tradingsymbols. Series suffixes are real
-  // instruments (MTARTECH-BE), so hyphens are allowed through.
+  // instruments (ACME-BE), so hyphens are allowed through.
   const symbols = [...new Set(
     raw.split(',').map(s => s.trim().toUpperCase()).filter(s => /^[A-Z0-9][A-Z0-9&.\-]{0,19}$/.test(s))
   )];

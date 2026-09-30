@@ -914,7 +914,7 @@ function tbMapFills(after){
     Object.entries(rec.fills||{}).forEach(([sym,f])=>{
       if(!f||f.qty==null) return;
       const oid=String(f.order_id||'');
-      out.push({s:tbNorm(sym), d:rec.date, t:(f.side||'BUY')==='BUY'?'buy':'sell', q:+f.qty, p:+f.avg_fill,
+      out.push({s:tbNorm(sym), d:rec.date, t:String(f.side||'BUY').toUpperCase()==='BUY'?'buy':'sell', q:+f.qty, p:+f.avg_fill,
                 id:oid, x:'MAP', tm:rec.date+'T~'+oid, isin:'', map:true});
     });
   }));
@@ -1038,7 +1038,7 @@ function tbWindows(){
     // ledger table, on the same card, showed the right figure - a contradiction on one screen.
     // Anything ever held but unwindowed
     // gets an OPEN window: we know the basket held it, we just do not know when.
-    // Keyed on the NORMALISED symbol, so `MTARTECH` from ever_held and `MTARTECH-BE` from membership
+    // Keyed on the NORMALISED symbol, so `ACME` from ever_held and `ACME-BE` from membership
     // collapse to ONE window rather than pushing the same basket twice.
     // ever_held UNION holdings: `[] || fallback` keeps an empty array in JS, so an empty ever_held
     // used to drop every held symbol here while Python fell back to holdings - a silent split.
