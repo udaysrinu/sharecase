@@ -202,8 +202,9 @@ text-align:center;background:linear-gradient(160deg,var(--panel),var(--bg2));cur
 
 <div id="out"></div>
 
-<div class="foot">Prices from this app's own <span class="mono">/api/price</span>. Unrealised figures only —
-realised returns and XIRR need a tradebook; dividends are not exposed by Kite's holdings or orders API.
+<div class="foot">Prices from this app's own <span class="mono">/api/price</span>. Realised returns appear
+once you add a Zerodha tradebook; all figures are gross of charges, and dividends are not exposed by
+Kite's holdings or orders API.
 <br>Not investment advice.</div>
 </div>
 
@@ -212,7 +213,7 @@ const $=id=>document.getElementById(id);
 // PRIVACY MODE. Every rupee figure on the page already passes through M(), so masking there covers
 // all 45 call sites at once - totals, per-basket, per-stock, the sells ledger and the tradebook box.
 // Quantities have to go too, and that is the non-obvious part: a share count multiplied by a price
-// anyone can look up reconstructs the position exactly, so hiding rupees while showing "MVELECTRO 72"
+// anyone can look up reconstructs the position exactly, so hiding rupees while showing "XYZ 40"
 // hides nothing. Percentages are safe - they carry no scale.
 // Deliberately NOT hidden: the average buy price. It is recoverable from the live price and the
 // return percentage (avg = px / (1 + ret)), both of which are the whole point of the mode, so masking
@@ -267,8 +268,8 @@ const loadSaved=()=>{ try{ return JSON.parse(localStorage.getItem(DATAKEY)||'nul
 // STORAGE IS VERSIONED, and the version is in TRADEKEY above. An earlier build keyed trades on Trade
 // ID alone and carried no exchange on the value. A migration that rekeyed on read looked correct and
 // was NOT: its guard needed t.x, the old records had none, so those entries kept their bare keys and
-// sat alongside their own composite twins. Measured in a real browser: 1,237 trades where the files
-// hold 814, one GRSE buy present SIXTEEN times, and realised P&L inflated from 1,74,599 to 2,87,412.
+// sat alongside their own composite twins. Measured in a real browser: half again as many stored
+// trades as the files held, one buy present SIXTEEN times, and realised P&L inflated by about two-thirds.
 // Every symptom was silent - no error, all rows priced, a plausible number on screen.
 // So: do not migrate corrupt state, discard it. Bumping the version orphans the bad blob and the next
 // upload rebuilds cleanly. The cost is that realised reads "-" until the tradebooks are re-picked once,
@@ -299,7 +300,7 @@ const ago=iso=>{ const m=Math.round((Date.now()-new Date(iso))/60000);
   const h=Math.round(m/60); if(h<24) return h+(h===1?' hour ago':' hours ago');
   const d=Math.round(h/24); return d+(d===1?' day ago':' days ago'); };
 // Which baskets are expanded, remembered per tag. Collapsed by default so five baskets fit on one
-// screen; 72 holdings across them is a wall of table otherwise.
+// screen; dozens of holdings across them is a wall of table otherwise.
 const OPENKEY='sc_basket_open';
 const opens=()=>{ try{ return JSON.parse(localStorage.getItem(OPENKEY)||'{}'); }catch(e){ return {}; } };
 function setOpen(tag,v){ const o=opens(); if(v) o[tag]=1; else delete o[tag];
@@ -323,9 +324,9 @@ const UNTAGGED='__untagged__';
 
 // One request for every symbol across every basket. The endpoint reads Yahoo server-side, which a
 // browser cannot do at all — see method.html. No key, so there is nothing to set up.
-// A whole portfolio holds more symbols than the endpoint accepts in one call: 65 against its cap of
-// 60 returned HTTP 400, which blanked EVERY figure on this page while the local test double — which
-// had no cap — showed all 65 priced. Chunking removes the cliff and stops the page depending on
+// A whole portfolio can hold more symbols than the endpoint accepts in one call: a request just over
+// its cap returned HTTP 400, which blanked EVERY figure on this page while the local test double — which
+// had no cap — showed everything priced. Chunking removes the cliff and stops the page depending on
 // whatever the server's cap happens to be.
 const PX_CHUNK=40;
 async function prices(syms){
@@ -533,7 +534,7 @@ function render(){
     // <details> rather than a JS accordion: it collapses with no script, is keyboard operable and
     // Ctrl-F still finds text inside a closed one in current browsers.
     const flag = cas.length ? '<span class="bflag" title="Corporate action pending — figures understate">!</span>'
-               : suspect.length ? '<span class="bflag warnflag" title="A holding is down more than 45% — check for an uncredited split or bonus">?</span>' : '';
+               : suspect.length ? '<span class="bflag warnflag" title="A holding is down more than 50% — check for an uncredited split or bonus">?</span>' : '';
     html+=`<details class="bk panel" data-tag="${esc(tag)}" ${opens()[tag]?'open':''}>
       <summary class="bsum">
         <span class="chev" aria-hidden="true"></span>
@@ -642,7 +643,7 @@ moves its profit out of 'unrealised' and into 'realised'.${mixedConv?' Ratio wit
       ${cas.length?`<div class="ca">
         <b>Corporate action pending — this basket's figures understate.</b>
         ${cas.map(c=>`<div style="margin-top:6px"><b>${esc(c.s)}</b>: ${num(c.ratio)}-for-1.
-          Price already adjusted, but <b>${c.trueQ-c.q} of this basket's ${c.trueQ} shares are not
+          Price already adjusted, but <b>${Q(c.trueQ-c.q)} of this basket's ${Q(c.trueQ)} shares are not
           yet credited</b>. Shown ${M(c.val)}, worth ${M(c.trueVal)} once they land
           (<span class="mono">${sgn(c.adj)}${M(Math.abs(c.adj))}</span>).</div>`).join('')}
         <div style="margin-top:7px">This basket: <b class="${cls(unreal)}">${sgn(unreal)}${M(Math.abs(unreal))}</b>
@@ -878,8 +879,8 @@ function tbParse(buf,name){
   let n=0;
   for(let i=hdr+1;i<grid.length;i++){
     const r=grid[i]; if(!r||!r[ix['Symbol']]) continue;
-    // (date, exchange, id). Trade ID alone is a per-day per-exchange counter - measured on 745 real
-    // trades it descends 92 times by date and spans 12,200 to 610,750,974. No collisions today, but
+    // (date, exchange, id). Trade ID alone is a per-day per-exchange counter - measured on a real
+    // tradebook it descends repeatedly when sorted by date and spans five orders of magnitude. No collisions today, but
     // keying on it alone would silently drop a trade the first time there is one. Must match
     // tradebook.py exactly or the two implementations diverge.
     const id=d(r[ix['Trade Date']])+'|'+String(r[ix['Exchange']]).trim().toUpperCase()
@@ -1003,13 +1004,13 @@ function tbRealised(){
 
 // Attribution by symbol. Uses ever_held, not the current holdings, so a constituent the basket has
 // since EXITED is still credited to it - otherwise a rebalance's realised loss vanishes.
-// A basket is defined by symbols AND BY TIME. Owning APOLLO in a basket created on 17 Aug says nothing
-// about 370 APOLLO you sold in April. Attributing on the symbol alone swept 17,095 of pre-basket personal
-// trading into DEFENCE and turned its real 8,915 LOSS into a phantom 8,180 gain - caught only because the
+// A basket is defined by symbols AND BY TIME. Owning a stock in a basket created in August says nothing
+// about the same stock you sold in April. Attributing on the symbol alone swept months of pre-basket personal
+// trading into one basket and turned its real LOSS into a phantom gain - caught only because the
 // account holder remembered booking that loss. So each batch declares when it began, and sales before
 // that date are held back as `__prebasket__` rather than credited to a basket that did not exist.
-// startOf() reads the leading YYYY-MM-DD of `executed`. Batches whose executed is prose - INFRA and
-// SELFMGD both say "various (pre-tagging)" - have NO knowable start, so they cannot be date-gated and
+// startOf() reads the leading YYYY-MM-DD of `executed`. Batches whose executed is prose - e.g.
+// "various (pre-tagging)" - have NO knowable start, so they cannot be date-gated and
 // are marked undateable instead of being given an invented cutoff.
 const startOf=b=>{ const m=/^(\d{4}-\d{2}-\d{2})/.exec(String(b&&b.executed||'')); return m?m[1]:null; };
 // Membership is DATED, because using membership as of TODAY lets a later trade rewrite the past.

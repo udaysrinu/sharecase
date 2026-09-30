@@ -183,7 +183,11 @@ plan covers it — pick the <b>Publisher</b> app type.</p>
        Find it in Kite under <b>Profile</b>, or on any Zerodha statement or contract note.</p></div></div>
   <div class="step"><span class="sn">4</span><div><b>Set the redirect URL</b>
     <p>Paste this exactly:</p>
-    <p class="mono" style="margin-top:6px;color:var(--tx)">https://sharecase.vercel.app/</p>
+    <p class="mono" id="redir" style="margin-top:6px;color:var(--tx)">https://sharecase-mu.vercel.app/</p>
+    <!-- Filled from location.origin, so a self-hosted copy shows ITS OWN address. The hard-coded value
+         used to be sharecase.vercel.app, an unrelated site: anyone registering it sent their Kite
+         request_token to a stranger. The static text above is only the fallback for file:// -->
+    <script>if(/^https?:$/.test(location.protocol))document.getElementById('redir').textContent=location.origin+'/';</script>
     <p style="margin-top:6px">Kite sends you back here after you confirm the basket. It must match
        what you register, or the handoff is rejected — so if you run your own copy at a different
        address, register <b>that</b> address instead of this one.</p></div></div>
