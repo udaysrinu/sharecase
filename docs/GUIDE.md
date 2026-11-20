@@ -113,7 +113,7 @@ for the minimum only; above it, see "over" above. For the sample basket it is **
 **Below the minimum it refuses**, rather than quietly dropping the stock it cannot afford. It names
 the stock that sets the floor and offers 1×, 2× and 3× the minimum:
 
-![The Workbench refusing ₹5,000 for the sample basket: it is under the floor of ₹12,554, TCS would get zero shares so you would own a different, more concentrated basket, and 1×, 2× and 3× the minimum (₹12,554, ₹25,108, ₹37,662) are offered. Above that, an amber "under this basket's floor" box with a Use ₹12,554 button, and the quick-pick row ₹12,600, ₹17,200, ₹27,300, ₹44,900 and ₹60,700](img/blocked.png)
+![The Workbench refusing ₹5,000 for the sample basket: it is under the floor of ₹12,554, TCS would get zero shares so you would own a different, more concentrated basket, and 1×, 2× and 3× the minimum (₹12,554, ₹25,108, ₹37,662) are offered. Above that, a pale "under this basket's floor" box with a Use ₹12,554 button, and the quick-pick row ₹12,600, ₹17,200, ₹27,300, ₹44,900 and ₹60,700](img/blocked.png)
 
 Then either **Copy as text / CSV**, or **Place in Kite**, which opens Kite in a new tab with the whole
 basket pre-filled. See [The Kite handoff](#the-kite-handoff). Nothing is placed by this page.
@@ -375,7 +375,7 @@ To try it with fake data, drop [`samples/sample_map.json`](../samples/sample_map
 three invented baskets, one stock shared by two of them, and a hand-kept sales ledger. There is no
 sample tradebook for the Tracker, so the realised figures in that demo come from the ledger.
 
-![The Tracker with samples/sample_map.json loaded: the Large Cap Core basket expanded with current value, invested, unrealised, realised, current return and total return, a recorded INFY sale, and a holdings table where RELIANCE carries a CORE + POWER chip; two more baskets collapsed, one of them showing a tot percentage](img/tracker.png)
+![The Tracker with samples/sample_map.json loaded: the Large Cap Core basket expanded with invested, value, unrealised, return, realised and total, a holdings table where RELIANCE carries a CORE + POWER chip, and its recorded INFY sale; Power & Utilities and Hand-picked collapsed below it](img/tracker.png)
 
 ### What you give it
 
@@ -601,7 +601,7 @@ counterfactual. It is parsed in the browser. Served next to a `live.json` (see
 [Dashboard from a tradebook](#dashboard-from-a-tradebook)), the page loads it by itself and re-reads
 it every 30 seconds.
 
-![The dashboard on a demo account built from samples/sample_tradebook.csv and samples/sample_holdings.json: a RELIANCE stop-loss alert, the tabs Overview, Live Holdings, Realised, Never Sold and The Paradox, the drop zone, then KPI tiles for Combined P&L, Cumulative Realised, Unrealised and Live Exposure, and the start of the realised curve](img/dashboard.png)
+![The dashboard on a demo account built from samples/sample_tradebook.csv and samples/sample_holdings.json: a RELIANCE stop-loss alert, the tabs Overview, Live Holdings, Realised, Never Sold and The Paradox, the drop zone, then Combined profit over tiles for Realised, Unrealised and Worth now, and the start of the Your smallcases list](img/dashboard.png)
 
 **Holdings JSON.** The browser accepts rows with just `s` (symbol) and `q` (quantity); the other
 fields in the [format](#holdingsjson-format) are optional there. `build_dashboard.py` is stricter and

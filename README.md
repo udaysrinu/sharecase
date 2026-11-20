@@ -9,7 +9,7 @@ several baskets, the Tracker shows what each one has made, from your own Console
 retail investors in India who share baskets with friends, or follow a platform's baskets, and want to
 check the arithmetic themselves.
 
-**[Open it](https://sharecase-mu.vercel.app/)** · **[Full guide: docs/GUIDE.md](docs/GUIDE.md)** · Not investment advice
+**[Open it](https://sharecase-mu.vercel.app/)** · **[Full guide: docs/GUIDE.md](docs/GUIDE.md)** · **[How it works: docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** · Not investment advice
 
 ## The pages
 
@@ -45,9 +45,9 @@ check the arithmetic themselves.
 
 ![The Workbench at step 5 on the sample basket: ₹4,00,000, 4 stocks, ₹3,98,055 deployed, ₹1,945 left. Below it a ledger of RELIANCE 40, TCS 27, HDFCBANK 58 and NTPC 228 shares with target weight, price, shares, cost, actual weight and signed drift, and a "get closer to the target weights" panel suggesting ₹4,44,000](docs/img/workbench.png)
 
-![The Tracker with samples/sample_map.json loaded: the Large Cap Core basket expanded with current value, invested, unrealised, realised, current return and total return, a recorded INFY sale, and a holdings table where RELIANCE carries a CORE + POWER chip; two more baskets collapsed, one of them showing a tot percentage](docs/img/tracker.png)
+![The Tracker with samples/sample_map.json loaded: the Large Cap Core basket expanded with invested, value, unrealised, return, realised and total, a holdings table where RELIANCE carries a CORE + POWER chip, and its recorded INFY sale; Power & Utilities and Hand-picked collapsed below it](docs/img/tracker.png)
 
-![The dashboard on a demo account built from samples/sample_tradebook.csv and samples/sample_holdings.json: the tabs Overview, Live Holdings, Realised, Never Sold and The Paradox, the drop zone, then KPI tiles for Combined P&L, Cumulative Realised, Unrealised and Live Exposure](docs/img/dashboard.png)
+![The dashboard on a demo account built from samples/sample_tradebook.csv and samples/sample_holdings.json: the tabs Overview, Live Holdings, Realised, Never Sold and The Paradox, the drop zone, then Combined profit over tiles for Realised, Unrealised and Worth now](docs/img/dashboard.png)
 
 Every figure in these shots comes from the built-in sample or the files in [`samples/`](samples/), and
 all of it is invented.
