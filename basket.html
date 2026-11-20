@@ -592,6 +592,10 @@ addEventListener('DOMContentLoaded',()=>{
 });
 addEventListener('resize',fitAll);
 const M=v=>'₹'+Math.round(v).toLocaleString('en-IN');
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// SECURITY: a basket sheet is a file a FRIEND sends you, so it is untrusted. Its symbols are checked
+// here and nowhere else; its free text (label, theme, as-of, risk) is escaped wherever it is shown.
+const SYMRE=/^[A-Z0-9][A-Z0-9&.\-]{0,24}$/;
 const say=(t,cls='warn')=>$('msg').innerHTML=t?`<div class="${cls}">${t}</div>`:'';
 
 // ---- the whole sizing model, same maths as basket.py ----
@@ -738,7 +742,11 @@ function effN(w){const t=Object.values(w).reduce((a,b)=>a+b,0);
 
 function validate(s){
   if(typeof s!=='object'||!s) throw new Error('Not a JSON object.');
-  if(!s.weights||!Object.keys(s.weights).length) throw new Error('Missing "weights".');
+  if(!s.weights||typeof s.weights!=='object'||!Object.keys(s.weights).length) throw new Error('Missing "weights".');
+  for(const f of ['label','theme','asof','risk']) if(s[f]!=null&&typeof s[f]!=='string') throw new Error(`"${f}" must be text.`);
+  const bad=Object.keys(s.weights).filter(k=>!SYMRE.test(k));
+  if(bad.length) throw new Error(`${bad.length} entr${bad.length>1?'ies are':'y is'} not a stock symbol (letters, digits, & . - only).`);
+  for(const f of ['prices','shares']) if(s[f]&&typeof s[f]==='object') s[f]=Object.fromEntries(Object.entries(s[f]).filter(([k])=>SYMRE.test(k)));
   s.prices=s.prices||{};                       // prices may be absent or partial — asked for later
   if(s.shares) s.shares={...s.shares};         // kept so a later rebalance email can be applied
   s.prices=Object.fromEntries(Object.entries(s.prices).filter(([,v])=>v>0));  // drop bad prices
@@ -769,14 +777,14 @@ function load(obj){
   const top3=top.slice(0,3).reduce((a,s)=>a+w[s],0)/tot*100;
   const eN=effN(w);
   const conc=eN>=10?['Low','var(--gain)']:eN>=5?['Moderate','var(--gold)']:['High','var(--ox)'];
-  const risk=(SHEET.risk||'').toLowerCase();
+  const risk=/^[a-z]+(-[a-z]+)?$/.test((SHEET.risk||'').toLowerCase())?SHEET.risk.toLowerCase():'';   // goes into a class name: words only
 
   $('prof').innerHTML=`<div class="panel" style="margin-bottom:12px">
-    <div class="bname">${SHEET.label}</div>
+    <div class="bname">${esc(SHEET.label)}</div>
     <div>
-      ${SHEET.theme?`<span class="tag theme">${SHEET.theme}</span>`:''}
+      ${SHEET.theme?`<span class="tag theme">${esc(SHEET.theme)}</span>`:''}
       ${risk?`<span class="tag risk-${risk}">${risk} risk</span>`:''}
-      ${SHEET.asof?`<span class="tag">as of ${SHEET.asof}</span>`:''}
+      ${SHEET.asof?`<span class="tag">as of ${esc(SHEET.asof)}</span>`:''}
       <span class="tag">${n} stocks</span>
     </div></div>
    <div class="kpis">
@@ -1158,7 +1166,7 @@ function kitePayload(reb){
     return o;});
   return {key,tag,mkt,orders,rows};
 }
-const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+
 function showPayload(reb){
   if(!localStorage.getItem(KKEY)){ location.href='onboarding.html'; return; }
   const p=kitePayload(reb);
@@ -1241,6 +1249,7 @@ function parseHoldings(rows){
   const out={}; HELDPX={}; T1SEEN=0;
   for(let r=hi+1;r<rows.length;r++){
     const sym=String(rows[r]?.[si]??'').trim().toUpperCase();
+    if(!SYMRE.test(sym)) continue;                         // blank rows, totals, anything that is not a symbol
     // add unsettled T1 shares: freshly bought stock reports quantity 0 until settlement,
     // and treating that as "not held" would re-buy the whole position
     const t1q=t1>-1?num(rows[r]?.[t1]):0;
@@ -2003,7 +2012,7 @@ function fromEmail(){
       const updated=sheetFrom(sh,px,label);
       noteFollow(updated, r.kind, {turnover:Math.round(turnover)});
       showBuilt(updated,'mout',
-        `${r.kind} applied to “${SHEET.label}” — ${Object.keys(sh).length} stocks after`, true);
+        `${r.kind} applied to “${esc(SHEET.label)}” — ${Object.keys(sh).length} stocks after`, true);
       if(entered.length) notes.push(`Entered the basket: <b>${entered.join(', ')}</b>`);
       if(exited.length)  notes.push(`Exited completely: <b>${exited.join(', ')}</b>`);
       notes.push(`Prices for touched stocks updated to the rebalance fills; untouched stocks keep
@@ -2092,6 +2101,7 @@ function sheetFromHoldings(rows){
   const val={},px={},qty={};
   for(let r=hi+1;r<rows.length;r++){
     const sym=String(rows[r]?.[si]??'').trim().toUpperCase();
+    if(!SYMRE.test(sym)) continue;                         // blank rows, totals, anything that is not a symbol
     const t1q=t1>-1?num(rows[r]?.[t1]):0;                 // unsettled shares count as held
     const q=num(rows[r]?.[qi])+(t1q>0?t1q:0), p=num(rows[r]?.[pi]);
     if(!sym||!(q>0)||!(p>0)) continue;
@@ -2145,11 +2155,11 @@ function readImport(f){
       const scoped=keep?scopeToBasket(full,keep):null;
       window.__fullHoldingsSheet=full;
       showBuilt(scoped||full,'iout',
-        scoped ? `${Object.keys(scoped.weights).length} of ${n} holdings — just “${SHEET.label}”`
+        scoped ? `${Object.keys(scoped.weights).length} of ${n} holdings — just “${esc(SHEET.label)}”`
                : `all ${n} holdings — weights from current value`);
       say(scoped
         ? `That file held <b>${n}</b> positions across your whole account. Kept the
-           <b>${Object.keys(scoped.weights).length}</b> that are in “${SHEET.label}” and left the rest
+           <b>${Object.keys(scoped.weights).length}</b> that are in “${esc(SHEET.label)}” and left the rest
            out — a holdings export cannot say which basket a row belongs to, so without this the sheet
            would be every stock you own.
            <button class="np ghost" onclick="showBuilt(window.__fullHoldingsSheet,'iout','all ${n} holdings — weights from current value');say('')">Use all ${n} instead</button>`

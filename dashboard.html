@@ -595,8 +595,8 @@ const gFam=g=>{ if(g==='Other') return GOTHER; const L=groupList(DATA&&DATA.hold
   const i=L.indexOf(g); return GFAM[(i<0?0:i)%GFAM.length]; };
 const gByName=new Proxy({},{get:(_,k)=>gFam(k)[0]});      // g -> its primary ink, for ink[g] lookups
 function concBar(grp){const tot=grp.reduce((s,g)=>s+g.val,0)||1;const ink=gByName;
-  const seg=grp.map(g=>{const p=g.val/tot*100;return `<div class="cseg" style="width:${p}%;background:${ink[g.g]||'#46534C'}" title="${g.g} ${p.toFixed(0)}%">${p>9?g.g+' '+p.toFixed(0)+'%':''}</div>`}).join('');
-  const leg=grp.map(g=>`<span><i style="background:${ink[g.g]||'#46534C'}"></i>${g.g} · ${M(g.val)} (${(g.val/tot*100).toFixed(0)}%) <span class="${cls(g.pnl)}">${M(g.pnl)}</span></span>`).join('');
+  const seg=grp.map(g=>{const p=g.val/tot*100;return `<div class="cseg" style="width:${p}%;background:${ink[g.g]||'#46534C'}" title="${escH(g.g)} ${p.toFixed(0)}%">${p>9?escH(g.g)+' '+p.toFixed(0)+'%':''}</div>`}).join('');
+  const leg=grp.map(g=>`<span><i style="background:${ink[g.g]||'#46534C'}"></i>${escH(g.g)} · ${M(g.val)} (${(g.val/tot*100).toFixed(0)}%) <span class="${cls(g.pnl)}">${M(g.pnl)}</span></span>`).join('');
   return `<div class="conc">${seg}</div><div class="conclbl">${leg}</div>`}
 // Kite-style allocation bar: one tile PER STOCK, width ∝ chosen metric, colored by basket
 let allocMode='val';  // val | inv | pnl
@@ -617,7 +617,7 @@ function allocBar(H){
     const col=allocMode==='pnl'?(h.pnl>=0?'#077f47':'#c2352d'):pick(h.grp);
     const showLab=pc>4.5;
     const val=allocMode==='val'?h.q*h.ltp:allocMode==='inv'?h.q*h.avg:h.pnl;
-    return `<div class="atile" style="width:${pc}%;background:${col}" data-s="${h.s}" data-v="${Math.round(val)}" data-p="${pc.toFixed(1)}" data-g="${escH(h.grp)}">${showLab?`<span class="lab">${h.s}</span>`:''}</div>`}).join('');
+    return `<div class="atile" style="width:${pc}%;background:${col}" data-s="${escH(h.s)}" data-v="${Math.round(val)}" data-p="${pc.toFixed(1)}" data-g="${escH(h.grp)}">${showLab?`<span class="lab">${escH(h.s)}</span>`:''}</div>`}).join('');
   const total=allocMode==='pnl'?list.reduce((s,h)=>s+h.pnl,0):tot;
   const lbl=allocMode==='val'?'Current value':allocMode==='inv'?'Invested':'P&L magnitude';
   return `<div class="allocbar" id="allocbar">${tiles}</div>
@@ -633,7 +633,7 @@ function bindAllocTips(){
   let tip=document.getElementById('atip');if(!tip){tip=document.createElement('div');tip.id='atip';tip.className='atip';document.body.appendChild(tip);}
   document.querySelectorAll('#allocbar .atile').forEach(t=>{
     t.onmousemove=e=>{tip.style.opacity='1';tip.style.left=Math.min(e.clientX+14,innerWidth-180)+'px';tip.style.top=(e.clientY-50)+'px';
-      const v=+t.dataset.v;tip.innerHTML=`<b>${t.dataset.s}</b> <span class="dim">${t.dataset.g}</span><div class="tv">${allocMode==='pnl'?(v>=0?'+':'')+Mfull(v):Mfull(v)} · ${t.dataset.p}%</div>`;};
+      const v=+t.dataset.v;tip.innerHTML=`<b>${escH(t.dataset.s)}</b> <span class="dim">${escH(t.dataset.g)}</span><div class="tv">${allocMode==='pnl'?(v>=0?'+':'')+Mfull(v):Mfull(v)} · ${t.dataset.p}%</div>`;};
     t.onmouseleave=()=>tip.style.opacity='0';});
 }
 
@@ -710,7 +710,7 @@ function render(d){DATA=d;document.getElementById('upd').textContent=d.updated;
   const rts=d.roundtrips||[], hasRT=rts.length>0, NOTRADE={sym:'—',pnl:0,ret:0,hold:0};
   const bw=rts[rts.length-1]||NOTRADE, bl=rts[0]||NOTRADE;
   // attention rail
-  document.getElementById('rail').innerHTML=d.attention.length?d.attention.map(a=>`<div class="chip ${a.sev}"><span class="cd"></span><b>${a.s}</b> ${a.msg}</div>`).join(''):'';
+  document.getElementById('rail').innerHTML=d.attention.length?d.attention.map(a=>`<div class="chip ${a.sev}"><span class="cd"></span><b>${escH(a.s)}</b> ${escH(a.msg)}</div>`).join(''):'';
   // OVERVIEW
   document.getElementById('overview').innerHTML=`<section class="hero fade">
     <div class="hk">Combined profit</div>
@@ -1055,7 +1055,15 @@ async function livePrices(rows){
     const c=prev[r.s]; if(c){ r.day=(p/c-1)*100; r.dpnl=(p-c)*r.q; } });
   return {n, of:syms.length, at:new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})};
 }
+// SECURITY: uploaded files (and a friend's shared file) are untrusted. Symbols are interpolated into
+// HTML all over this page, so a row whose symbol is not an exchange symbol is rejected here, once,
+// instead of trusting every template to escape it. NSE/BSE symbols are A-Z 0-9 & . - only (M&M,
+// BAJAJ-AUTO, STLTECH-BE). Rejected rows are counted and shown, never silently dropped from totals.
+const SYMOK=x=>/^[A-Z0-9][A-Z0-9&.\-]{0,24}$/.test(String(x));
 function buildData(trades,holdings,pre,stamp){
+  const t0=(trades||[]).length, h0=(holdings||[]).length;
+  trades=(trades||[]).filter(t=>SYMOK(t.sym)); holdings=(holdings||[]).filter(h=>SYMOK(h.s));
+  const rejected=(t0-trades.length)+(h0-holdings.length);
   holdings=basketRows(holdings);
   const {roundtrips:rt,openLots,preSold}=fifoJS(trades);
   const wins=rt.filter(t=>t.pnl>0),losses=rt.filter(t=>t.pnl<0);
@@ -1104,7 +1112,7 @@ function buildData(trades,holdings,pre,stamp){
   if(H&&H.length){
     const unreal=H.reduce((s,h)=>s+h.pnl,0),invested=H.reduce((s,h)=>s+h.q*h.avg,0),mkt=H.reduce((s,h)=>s+h.q*h.ltp,0);
     const grp={}; H.forEach(h=>{grp[h.grp]=grp[h.grp]||[0,0];grp[h.grp][0]+=h.pnl;grp[h.grp][1]+=h.q*h.ltp;});
-    const att=[], seenAtt=new Set(); H.forEach(h=>{if(seenAtt.has(h.s))return; seenAtt.add(h.s); if(h.sl){const d=(h.ltp-h.sl)/h.ltp*100;
+    const att=[], seenAtt=new Set(); if(rejected) att.push({t:'BAD',s:'Skipped',msg:rejected+' row'+(rejected>1?'s':'')+' whose symbol is not a stock symbol',sev:'warn'}); H.forEach(h=>{if(seenAtt.has(h.s))return; seenAtt.add(h.s); if(h.sl){const d=(h.ltp-h.sl)/h.ltp*100;
         if(d<12)att.push({t:'SL',s:h.s,msg:d.toFixed(1)+'% from stop ₹'+h.sl,sev:d<7?'hot':'warn'});}
       if(Math.abs(h.day||0)>=2.5)att.push({t:'MOVE',s:h.s,msg:(h.day>=0?'+':'−')+Math.abs(h.day).toFixed(1)+'% '+DAYW,sev:h.day>0?'pos':'neg'});});
     Object.assign(out,{holdings:[...H].sort((a,b)=>b.pnl-a.pnl),unreal:Math.round(unreal),
@@ -1203,7 +1211,7 @@ function renderNeverSold(data){
   </div>
   <h2>Phantom Holdings<small>every buy in this tradebook, never sold</small></h2>
   <div class="scroll"><table><thead><tr><th>Counter</th><th>Basket</th><th class="r">Qty</th><th class="r">Avg Buy</th><th class="r">Price Now</th><th class="r">Value</th><th class="r">Unreal P&L</th></tr></thead><tbody>
-    ${cf.rows.map(r=>`<tr><td class="sym">${r.s}</td><td class="dt">${r.grp}</td><td class="r">${r.q}</td><td class="r">${r.avg.toFixed(1)}</td><td class="r">${r.ltp.toFixed(1)}</td><td class="r b">${M(r.val)}</td><td class="r b ${cls(r.pnl)}">${M(r.pnl)}</td></tr>`).join('')}
+    ${cf.rows.map(r=>`<tr><td class="sym">${escH(r.s)}</td><td class="dt">${escH(r.grp)}</td><td class="r">${r.q}</td><td class="r">${r.avg.toFixed(1)}</td><td class="r">${r.ltp.toFixed(1)}</td><td class="r b">${M(r.val)}</td><td class="r b ${cls(r.pnl)}">${M(r.pnl)}</td></tr>`).join('')}
   </tbody></table></div>
   <div class="verdict"><div class="q">“Never selling these ${cf.covered} would have returned ${M(cf.phantomPnl)}; the path you took returned ${M(cf.actualPnl)} — ${gapPos?`the exits cost ${M(Math.abs(cf.gap))} in hindsight.`:`the exits saved ${M(Math.abs(cf.gap))}.`}”</div><div class="a">— Point-in-time counterfactual · today's prices · ${cf.covered} of ${cf.total} counters</div></div>`;
 }
