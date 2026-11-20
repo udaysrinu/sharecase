@@ -5,195 +5,276 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"
  integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <style>
-@font-face{font-family:'IBM Plex Sans';src:url(fonts/plex-sans-400.woff2)format('woff2');font-weight:400;font-display:swap}
-@font-face{font-family:'IBM Plex Sans';src:url(fonts/plex-sans-600.woff2)format('woff2');font-weight:600;font-display:swap}
-@font-face{font-family:'IBM Plex Mono';src:url(fonts/plex-mono-400.woff2)format('woff2');font-weight:400;font-display:swap}
-@font-face{font-family:'IBM Plex Mono';src:url(fonts/plex-mono-500.woff2)format('woff2');font-weight:500;font-display:swap}
-@font-face{font-family:'Barlow Semi Condensed';src:url(fonts/barlow-sc-600.woff2)format('woff2');font-weight:600;font-display:swap}
-:root{--bg:#E9EAE3;--bg2:#F3F4EE;--panel:#FCFCF8;--panel2:#F3F4EE;--hair:#BCC3B8;--hair2:#A6AFA2;
---tx:#18211D;--tx2:#46534C;--tx3:#5C6A61;--em:#155A78;--gain:#0B5B3A;--ox:#A52A22;--gold:#7A4E00;
---display:'Barlow Semi Condensed';--ui:'IBM Plex Sans';--num:'IBM Plex Mono';
---radius:10px;--radius-sm:6px;--radius-md:12px;--radius-lg:16px;--radius-full:999px}
+/* ---------- type: Gloock (display, one weight) + Figtree (everything else), self-hosted, OFL ---------- */
+@font-face{font-family:'Gloock';src:url(fonts/gloock-latin-ext.woff2)format('woff2');font-weight:400;font-display:swap;unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF}
+@font-face{font-family:'Gloock';src:url(fonts/gloock-latin.woff2)format('woff2');font-weight:400;font-display:swap;unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
+@font-face{font-family:'Figtree';src:url(fonts/figtree-latin-ext.woff2)format('woff2');font-weight:400 700;font-display:swap;unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF}
+@font-face{font-family:'Figtree';src:url(fonts/figtree-latin.woff2)format('woff2');font-weight:400 700;font-display:swap;unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
+
+:root{--page:#e7e7e5;--bg:#efefee;--bg2:#f5f5f4;--panel:#ffffff;--panel2:#f5f5f4;--hair:#e7e7e7;--hair2:#cfcfcf;--tx:#0f0f0f;--tx2:#555555;--tx3:#6b6b6b;--em:#0f0f0f;--gain:#077f47;--action:#0f0f0f;--rule:#e7e7e7;--rule-strong:#cfcfcf;--display:'Gloock',Georgia,serif;--ui:'Figtree';--num:'Figtree';--ox:#c2352d;--ox2:#c2352d;--gold:#8a5f0f;--goldbg:#fcf8ee;--goldline:#e8d6a4;--blue:#1f47d4;--np:#0f0f0f;--onnp:#ffffff;--npr:#6f6f6f;--npb:#3b3b3b;--ease:cubic-bezier(.2,.7,.3,1)}
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:var(--bg);color:var(--tx);font-family:var(--ui),system-ui,sans-serif;font-size:15px;
-line-height:1.5;padding:0 0 70px;background-image:linear-gradient(180deg,rgba(0,0,0,.05),transparent 240px)}
-.wrap{max-width:1180px;margin:0 auto;padding:0 20px}
-.mono{font-family:var(--num),ui-monospace,monospace;font-variant-numeric:tabular-nums}
-.pos{color:var(--gain)}.neg{color:var(--ox)}
-h1{font-family:var(--display),sans-serif;font-weight:600;font-size:29px;letter-spacing:-.02em}
-.sub{font-family:var(--num);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--tx2);margin-top:5px}
-h2{font-family:var(--num);font-size:11.5px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;
-color:var(--tx2);display:flex;align-items:center;gap:10px;margin:30px 0 13px}
-h2::after{content:'';flex:1;height:1px;background:var(--hair)}
-.panel{background:var(--panel);border:1px solid var(--hair);border-radius:var(--radius-lg);padding:20px 23px;
-box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 26px -12px rgba(0,0,0,.10);margin-top:14px}
-button{font-size:12.5px;letter-spacing:.04em;padding:10px 17px;border-radius:var(--radius);
-border:1px solid var(--hair2);background:var(--panel2);color:var(--tx);cursor:pointer}
-button:hover{border-color:var(--em);color:var(--em)}
-button.pri{background:var(--em);border-color:var(--em);color:#fff;font-weight:700}
-.row{display:flex;gap:11px;align-items:center;flex-wrap:wrap}
-.note{font-size:12.5px;color:var(--tx2);font-style:italic;margin-top:9px}
-.warn{border:1px solid var(--gold);background:#F7EEDC;color:var(--gold);border-radius:var(--radius);
-padding:13px 16px;font-size:13px;margin-top:13px}
-.warn b{color:var(--gold)}
-/* the smallcase-style performance header */
-.perf{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0;
-border-bottom:1px solid var(--hair);padding-bottom:16px}
-.perf .c{padding-right:18px}
-.perf .k{font-family:var(--num);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--tx2)}
-.perf .v{font-family:var(--display),sans-serif;font-weight:600;font-size:26px;margin-top:5px;line-height:1.1}
-.perf .s{font-size:12px;color:var(--tx2);margin-top:3px}
-.perf2{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0;padding-top:15px}
-.perf2 .v{font-size:19px}
-.bhead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
-.bname{font-family:var(--display),sans-serif;font-weight:600;font-size:22px;letter-spacing:-.01em;
-color:var(--tx);background:transparent;border:none;border-bottom:1px dashed var(--hair2);
-padding:1px 2px;max-width:26em;width:auto;min-width:9em}
-.bname:hover{border-bottom-color:var(--em)}
-.bname:focus{outline:none;border-bottom:1px solid var(--em);background:var(--panel2)}
-.tag{font-family:var(--num);font-size:10px;letter-spacing:.08em;text-transform:uppercase;
-padding:3px 9px;border-radius:var(--radius-full);border:1px solid var(--em);color:var(--em)}
-.tag.none{border-color:var(--hair2);color:var(--tx3)}
-/* An internal tag is ours, not the broker's. It must not look like a recorded fact. */
-.tag.int{border-style:dashed;border-color:var(--hair2);color:var(--tx3)}
-.tag.int b{font-weight:400;opacity:.75}
-/* the platform's own numbers, shown beside ours because they will never match */
-.scbox{border:1px solid var(--em);background:rgba(21,90,120,.05);border-radius:var(--radius);
-padding:12px 15px;font-size:12.5px;color:var(--tx2);margin-top:13px;line-height:1.6}
-.scbox b{color:var(--tx)}
-.saved{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12.5px;color:var(--tx2);
-border:1px dashed var(--hair2);border-radius:var(--radius);padding:9px 13px;margin-top:11px}
-.saved b{color:var(--tx)}
-/* realised: a different colour from the platform box, because this is OUR record not theirs */
-.sells{border:1px solid var(--hair2);background:var(--panel2);border-radius:var(--radius);
-padding:12px 15px;font-size:12.5px;color:var(--tx2);margin-top:13px;line-height:1.6}
-.sells b{color:var(--tx)}
-.sells table{margin-top:6px;font-size:12.5px}
-.sells th{padding-bottom:6px}
-.sells td{padding:5px 10px 5px 0}
-/* nine columns will not fit a phone. Scroll the table instead of shrinking the digits, and keep the
-   symbol pinned so a scrolled row is still identifiable. */
-details.bk>table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
-@media(max-width:760px){
-  details.bk>table{white-space:nowrap}
-  details.bk>table td.sym{position:sticky;left:0;background:var(--panel)}
+/* ---------- CRED Money light world + NeoPOP controls (DESIGN.md), the same world as dashboard.html ----------
+   White sheet on a grey band; Gloock for the title and section headings, Figtree for the rest; ink (not
+   blue) for selection and action; green and red only for money up and down; gold only for notices.
+   No boxed cards, no blur shadows: depth is NeoPOP's solid extruded edge. */
+:root{--t:170ms;--e:cubic-bezier(.22,.61,.36,1)}
+a,button,input,summary,.drop,.bsum,td{
+  transition:background-color var(--t) var(--e),border-color var(--t) var(--e),
+  color var(--t) var(--e),box-shadow var(--t) var(--e),transform var(--t) var(--e)}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;
+    transition-duration:.01ms!important;scroll-behavior:auto!important}
 }
-/* a pending corporate action: informative, not an error - the money is real, just not credited yet */
-.ca{border:1px solid var(--em);background:rgba(21,90,120,.06);border-radius:var(--radius);
-padding:12px 15px;font-size:12.5px;color:var(--tx2);margin-top:13px;line-height:1.6}
-.ca b{color:var(--tx)}
-/* collapsible basket. summary is the one-line ledger row; the body is everything else. */
-details.bk{padding:0}
+/* ---------- nav: fixed inner width so it never reshapes between pages (identical to dashboard.html) ---------- */
+.ftbar{width:100%;border-bottom:1px solid var(--hair);background:var(--panel);
+  box-shadow:0 1px 2px rgba(0,0,0,.03);margin-bottom:26px}
+.ftnav{max-width:1180px;margin:0 auto;display:flex;gap:2px;align-items:center;
+  flex-wrap:nowrap;overflow-x:auto;padding:9px 20px;-webkit-overflow-scrolling:touch}
+.ftnav::-webkit-scrollbar{display:none}
+.ftnav a{font-size:12.5px;color:var(--tx2);text-decoration:none;padding:8px 13px;
+  border-radius:var(--radius);white-space:nowrap;display:inline-flex;align-items:center;gap:6px;
+  min-height:34px;line-height:1}   /* line-height:1 — else each page's body lh resizes the bar */
+.ftnav a:hover{background:var(--panel2);color:var(--tx);transform:none}
+.ftnav a.on{background:var(--em);color:#fff;font-weight:600}
+.ftnav a.brand{font-family:var(--display);font-weight:400;font-size:13.5px;color:var(--tx);margin-right:8px;padding-left:0}
+.ftnav a.brand:hover{background:transparent;color:var(--em)}
+.ftnav svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.9;flex:none}
+
+:root{--radius:0px;--radius-xs:0px;--radius-sm:0px;--radius-md:0px;--radius-lg:0px;--radius-full:999px;--ring:var(--tx)}
+html{background:var(--bg);scrollbar-color:var(--hair2) transparent;accent-color:var(--tx);caret-color:var(--tx)}
+::selection{background:var(--tx);color:#fff}
+body{background:var(--bg);color:var(--tx);padding:0 16px 56px;font:400 .9375rem/1.5 var(--ui),system-ui,sans-serif;
+  font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1280px;margin:0 auto;background:var(--panel);border-radius:18px 18px 0 0;padding:28px 36px 48px;min-height:100vh}
+:focus-visible{outline:2px solid var(--tx);outline-offset:2px;border-radius:var(--radius)}
+a{color:var(--tx);text-underline-offset:4px}
+b,strong{font-weight:700}
+/* nav band: same inner width and height on every page; ink pill for the current page */
+.ftbar{background:transparent;border:none;box-shadow:none;margin:0}
+.ftnav{padding:12px 20px}
+.ftnav a{font:600 .8125rem/1 var(--ui);color:var(--tx2);border-radius:999px;min-height:40px;padding:0 15px}
+.ftnav a:hover{background:var(--panel);color:var(--tx)}
+.ftnav a.on{background:var(--tx);color:#fff;font-weight:700}
+.ftnav a.brand{font:400 1.25rem/1 var(--display);letter-spacing:-.01em;color:var(--tx)}
+.ftnav a.brand:hover{background:transparent;color:var(--tx)}
+
+/* ---------- type ---------- */
+.mono{font-family:var(--ui);font-variant-numeric:tabular-nums}
+/* a figure, a date or a signed amount never breaks across lines: "−" alone at a line end reads as a dash */
+.num,td.r,td.mono,span.mono,.pos,.neg,.bfacts b{white-space:nowrap}
+.pos{color:var(--gain)}.neg{color:var(--ox)}
+h1{font:400 1.75rem/1.12 var(--display);letter-spacing:-.015em}
+.sub{font-size:.9375rem;color:var(--tx3);margin-top:6px}
+h2{font:400 1.5rem/1.2 var(--display);letter-spacing:-.01em;color:var(--tx);text-wrap:balance}
+.note{font-size:.875rem;color:var(--tx3);margin-top:12px}
+.sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+/* ---------- NeoPOP plunk button (CRED's open-source NeoPOP, Apache-2.0, redrawn in CSS) ---------- */
+.np{--d:4px;position:relative;display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:44px;
+  padding:0 22px;margin:0 var(--d) var(--d) 0;background:var(--np);color:var(--onnp);border:none;border-radius:0;cursor:pointer;
+  font:600 .875rem/1 var(--ui);letter-spacing:0;transition:transform .12s var(--ease)}
+.np::before,.np::after{content:'';position:absolute;transition:opacity .12s var(--ease)}
+.np::before{top:0;right:calc(var(--d) * -1);width:var(--d);height:100%;background:var(--npr);transform-origin:left top;transform:skewY(45deg)}
+.np::after{left:0;bottom:calc(var(--d) * -1);width:100%;height:var(--d);background:var(--npb);transform-origin:left top;transform:skewX(45deg)}
+.np:active{transform:translate(var(--d),var(--d))}
+.np:active::before,.np:active::after{opacity:0}
+.np.ghost{background:var(--panel);color:var(--tx);box-shadow:inset 0 0 0 2px var(--tx);--npr:var(--tx);--npb:var(--tx)}
+
+/* ---------- notices: gold box, 1px edge all round. Confirmation is plain ink, never green ---------- */
+.warn,.ca{background:var(--goldbg);border:1px solid var(--goldline);color:var(--tx);padding:12px 16px;
+  font-size:.875rem;line-height:1.55;margin-top:12px}
+.warn b,.ca b{color:var(--tx)}
+.ok{font:500 .875rem/1.5 var(--ui);color:var(--tx);margin-top:12px}
+
+/* ---------- import: the full drop zone before data, one dashed line once it is in ---------- */
+.panel{margin-top:24px}
+#intro p{max-width:72ch}
+#intro p+p{margin-top:8px}
+.drop{display:block;border:1.5px dashed var(--hair2);background:var(--panel2);padding:26px 22px;text-align:center;cursor:pointer;margin-top:16px}
+.drop:hover{border-color:var(--tx)}
+.drop:focus-within{outline:2px solid var(--tx);outline-offset:2px}
+.drop .dh{font:700 1rem/1.4 var(--ui)}
+.drop .note{margin-top:6px}
+.panel.loaded{border:1.5px dashed var(--hair2);background:var(--panel2);padding:10px 16px}
+.panel.loaded #intro,.panel.loaded #drop{display:none}
+.panel.loaded #msg .ok{margin:6px 0 0}
+.panel.loaded #msg .warn{margin:8px 0}
+.saved{display:flex;align-items:center;justify-content:space-between;gap:0 24px;flex-wrap:wrap;
+  font-size:.875rem;color:var(--tx2);margin-top:12px}
+.panel:not(.loaded) .saved{border-top:1px dashed var(--hair2);padding-top:4px}
+.panel.loaded .saved{margin-top:0}
+.saved b{color:var(--tx)}
+.sacts{display:inline-flex;gap:0 22px;align-items:center;flex-wrap:wrap}
+.saved button.sm{display:inline-flex;align-items:center;min-height:44px;padding:0;background:none;border:none;
+  font:600 .875rem/1 var(--ui);color:var(--tx);text-decoration:underline;text-underline-offset:5px;cursor:pointer}
+.saved button.sm:hover{text-decoration-thickness:2px}
+
+/* ---------- the ledger heading row and its tools ---------- */
+.lbar{display:flex;align-items:flex-end;justify-content:space-between;gap:16px 24px;flex-wrap:wrap;margin:48px 0 16px}
+.ctl{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}   /* faces align; the NeoPOP edge hangs below */
+.find{font:500 .875rem var(--ui);color:var(--tx);background:var(--panel);border:1px solid var(--hair2);border-radius:0;
+  padding:0 12px;min-height:44px;width:15em}
+.find::placeholder{color:var(--tx3)}
+.find:hover{border-color:var(--tx3)}
+.find:focus{border-color:var(--tx)}
+.ctl button.sm{min-height:44px;padding:0 16px;border:1px solid var(--hair2);border-radius:999px;background:var(--panel);color:var(--tx2);
+  font:600 .75rem/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+.ctl button.sm:hover{border-color:var(--tx3);color:var(--tx)}
+.ctl .np{margin-left:4px}
+.findres{font:500 .875rem/1.5 var(--ui);color:var(--tx);margin:0 0 16px}
+.findres:empty{display:none}
+.findres.none{color:var(--tx2)}
+
+/* ---------- THE LEDGER: the page's answer, so it comes first. One column template shared by the header
+   row, every basket's summary row and the total row, so every figure in a column lines up. Fixed rem
+   widths, not auto and not em: each <summary> is its own grid, auto columns would size per row and drift,
+   and em would scale with each row's own font size so the header would sit off its figures. ---------- */
+.ledger{border-top:1.5px solid var(--tx)}
+.lgrid{display:grid;grid-template-columns:14px minmax(0,1fr) 7.2rem 7.2rem 7rem 5.4rem 7rem 5.4rem;
+  column-gap:18px;align-items:baseline}
+.lgrid>.r{text-align:right}
+.lhead{padding:14px 12px 10px;font:600 .75rem/1.3 var(--ui);letter-spacing:.12em;text-transform:uppercase;color:var(--tx3);
+  border-bottom:1px solid var(--hair2)}
+.num{font:700 1rem/1.3 var(--ui)}
+.bmeta{display:block;font-size:.8125rem;color:var(--tx3);margin-top:3px;font-weight:400}
+.ltotal{padding:16px 12px 18px;border-top:1.5px solid var(--tx);border-bottom:1px dashed var(--hair2)}
+.lname{font:700 1rem/1.3 var(--ui)}
+details.bk{border-bottom:1px dashed var(--hair2)}
+details.bk:last-of-type{border-bottom:none}
+details.bk.dim{opacity:.45}
 details.bk>summary::-webkit-details-marker{display:none}
 details.bk>summary::marker{content:''}
-.bsum{display:flex;align-items:center;gap:12px;flex-wrap:wrap;cursor:pointer;list-style:none;
-padding:16px 23px;border-radius:var(--radius-lg)}
-.bsum:hover{background:var(--panel2)}
-details.bk[open]>.bsum{border-bottom:1px solid var(--hair);border-radius:var(--radius-lg) var(--radius-lg) 0 0}
-details.bk>*:not(summary){padding-left:23px;padding-right:23px}
-details.bk>table{width:calc(100% - 46px);margin-left:23px;margin-right:23px}
-details.bk>*:last-child{padding-bottom:20px}
-.chev{flex:none;width:8px;height:8px;border-right:1.8px solid var(--tx3);border-bottom:1.8px solid var(--tx3);
-transform:rotate(-45deg);transition:transform 170ms cubic-bezier(.22,.61,.36,1)}
-details.bk[open] .chev{transform:rotate(45deg)}
-.btitle{font-family:var(--display),sans-serif;font-weight:600;font-size:19px;letter-spacing:-.01em;
-color:var(--tx)}
-.rename{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:15px}
-.rename label{font-family:var(--num);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
-color:var(--tx2)}
-.rename input{font-family:var(--ui),sans-serif;font-size:14px;color:var(--tx);background:var(--panel2);
-border:1px solid var(--hair2);border-radius:var(--radius-sm);padding:6px 10px;min-width:15em}
-.rename input:focus{outline:none;border-color:var(--em);box-shadow:0 0 0 3px rgba(21,90,120,.16)}
-.bsum .bn{color:var(--tx3)}
-/* cost, then value, then the gain: what went in on the left of the arrow, what it is worth on the
-   right. The arrow is what makes two bare rupee figures unambiguous without spending width on labels.
-   The three are one non-wrapping unit: on a phone the flex row wrapped between the arrow and the value,
-   leaving an arrow at the end of a line pointing at nothing. An arrow only reads as "becomes" while it
-   is adjacent to BOTH figures, so it must break before or after the trio, never inside it. */
-.bmoney{margin-left:auto;display:inline-flex;align-items:baseline;gap:12px;white-space:nowrap}
-.bcost{font-size:14px;color:var(--tx3);min-width:7.4em;text-align:right}
-.barrow{font-size:12px;color:var(--tx3)}
-.bfig{font-size:16px;font-weight:500;min-width:7em;text-align:right}
-/* every money column right-aligned at a fixed width so the five rows line up as a ledger */
-.bpnl{font-size:14px;font-weight:500;min-width:6.6em;text-align:right}
-.bpct{font-size:14px;font-weight:600;min-width:5.2em;text-align:right}
-/* Total return on the closed row. Deliberately quieter than .bpct: unrealised is the live number you
-   watch, total is the one you judge by, and two equally loud percentages next to each other read as a
-   contradiction rather than two views. */
-.btot{font-size:12px;font-weight:500;min-width:6.4em;text-align:right;opacity:.85}
-.bflag{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;
-border-radius:50%;background:var(--em);color:#fff;font-family:var(--num);font-size:11px;font-weight:700}
-.bflag.warnflag{background:var(--gold)}
-h2 button.sm{margin-left:0}
-@media(max-width:620px){.bmoney{margin-left:0;gap:8px}.bsum{gap:8px}
-  /* on a phone the four numbers wrap; drop the fixed widths so they pack instead of stretching */
-  .bcost,.bfig,.bpnl,.bpct{min-width:0}}
-button.sm{min-height:28px;padding:4px 11px;font-size:11.5px;margin-left:auto}
-table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13.5px}
-th{font-family:var(--num);font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--tx3);
+.bsum{cursor:pointer;list-style:none;padding:16px 12px}
+.bsum:hover,details.bk[open]>.bsum{background:var(--panel2)}
+.bbody{padding:2px 12px 28px}
+.btitle{font:700 1rem/1.3 var(--ui);color:var(--tx)}
+.chev{display:inline-block;flex:none;width:8px;height:8px;border-right:2px solid var(--tx);border-bottom:2px solid var(--tx);
+  transform:rotate(-45deg);transition:transform var(--t) var(--e)}
+details[open]>summary .chev{transform:rotate(45deg)}
+.tag{font:600 .75rem/1.3 var(--ui);letter-spacing:.12em;text-transform:uppercase;color:var(--tx3)}
+/* An internal tag is ours, not the broker's. It must not look like a recorded fact. */
+.tag.int b{font-weight:600;letter-spacing:.04em;text-transform:none}
+/* a word, not a glyph: "!" and "?" in a dot were icons standing in for a sentence */
+.bflag{display:inline-block;margin-left:8px;padding:2px 9px;border-radius:999px;background:var(--goldbg);border:1px solid var(--goldline);
+  color:var(--gold);font:600 .75rem/1.3 var(--ui);vertical-align:2px;white-space:nowrap}
+
+/* ---------- inside a basket ---------- */
+/* what the row cannot carry: where each figure comes from, and the bases its percentages divide by */
+.bfacts{display:flex;flex-wrap:wrap;gap:6px 28px;font-size:.875rem;color:var(--tx2);padding-top:14px}
+.bfacts b{color:var(--tx)}
+.bfacts .m{display:none}
+/* the platform's own numbers, shown beside ours because they will never match: tinted, theirs */
+.scbox{background:var(--panel2);padding:14px 16px;font-size:.875rem;color:var(--tx2);margin-top:14px;line-height:1.6}
+.scbox b{color:var(--tx)}
+/* realised and method notes: on the sheet, because this is OUR record, not theirs */
+.sells{border-top:1px dashed var(--hair2);padding-top:12px;font-size:.875rem;color:var(--tx2);margin-top:14px;line-height:1.6}
+.sells b{color:var(--tx)}
+.sells table{margin-top:8px}
+.xscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}   /* a table wider than a phone scrolls itself, never the page */
+.sells th,.sells td{padding:8px 16px 8px 0}
+.sells th:last-child,.sells td:last-child{padding-right:0}
+
+table{width:100%;border-collapse:collapse;margin-top:12px;font-size:.875rem}
 /* Horizontal padding MUST match td below, or every column header sits off-centre from its own
    numbers. It was 10px against td's 14px and the drift was visible on the right-aligned columns. */
-font-weight:600;text-align:left;padding:0 24px 9px 0;border-bottom:1px solid var(--hair2)}
+th{font:600 .75rem/1.3 var(--ui);letter-spacing:.1em;text-transform:uppercase;color:var(--tx3);text-align:left;
+  padding:10px 24px 10px 0;border-bottom:1px solid var(--hair2);white-space:nowrap}
 th:first-child{padding-right:30px}
 th:last-child,td:last-child{padding-right:0}
 th.r,td.r{text-align:right}
-td{padding:11px 24px 11px 0;border-bottom:1px solid var(--hair);vertical-align:top}
+td{padding:11px 24px 11px 0;border-bottom:1px dashed var(--hair2);vertical-align:top}
 tr:last-child td{border-bottom:none}
-td.sym{font-family:var(--num);font-weight:500;padding-right:30px}
+td.sym{font-weight:700;padding-right:30px}
+td.dt{color:var(--tx2)}
+tbody tr:hover td{background:var(--panel2)}
+tr.hit td{background:#ebebe9}
+tr.hit td.sym{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px}
+/* nine columns will not fit a phone. The TABLE scrolls inside its own wrapper (the page never scrolls
+   sideways), at full width, with the symbol pinned so a scrolled row is still identifiable. It used to be
+   the table itself set to display:block, which shrank it to its content inside a wider card. */
+.tscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-top:16px;border-top:1.5px solid var(--tx)}
+.tscroll table{margin-top:0;min-width:780px}
 /* Own line, not trailing the symbol. Inline it collided with the name - and a margin is invisible to
    copy-paste, so a symbol and its chip pasted as one run-on word ("ABCDEFBASKET1 + BASKET2"). A block element
    emits a newline when copied, so the text reads correctly outside the page too. */
-.dual{display:block;width:fit-content;margin-top:3px;background:#F7EEDC;color:var(--gold);
-font-family:var(--num);font-size:9px;padding:2px 6px;border-radius:var(--radius-xs,3px);
-letter-spacing:.05em;cursor:help}
-.wbar{height:5px;background:var(--panel2);border-radius:3px;overflow:hidden;margin-top:4px}
-.wbar i{display:block;height:100%;background:var(--em)}
-.ftbar{width:100%;border-bottom:1px solid var(--hair);background:var(--panel);margin-bottom:26px}
-.ftnav{max-width:1180px;margin:0 auto;display:flex;gap:2px;align-items:center;flex-wrap:nowrap;
-overflow-x:auto;padding:9px 20px}
-.ftnav a{font-size:12.5px;color:var(--tx2);text-decoration:none;padding:8px 13px;border-radius:var(--radius);
-white-space:nowrap;line-height:1;display:inline-flex;align-items:center;gap:6px;min-height:34px}
-.ftnav svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.9;flex:none}
-.ftnav::-webkit-scrollbar{display:none}
-.ftnav a:hover{background:var(--panel2);color:var(--tx)}
-.ftnav a.on{background:var(--em);color:#fff;font-weight:600}
-.ftnav a.brand{font-family:var(--display),sans-serif;font-weight:600;font-size:13.5px;color:var(--tx);margin-right:8px;padding-left:0}
-:focus-visible{outline:2px solid var(--em);outline-offset:2px;border-radius:var(--radius)}
-.drop{display:block;border:1.5px dashed var(--hair2);border-radius:var(--radius-md);padding:24px 22px;
-text-align:center;background:linear-gradient(160deg,var(--panel),var(--bg2));cursor:pointer}
-.drop:hover{border-color:var(--em)}
-.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
-.foot{font-size:11px;color:var(--tx3);text-align:center;margin-top:44px;line-height:1.8}
+.dual{display:block;width:fit-content;margin-top:4px;padding:1px 8px;border:1px solid var(--hair2);border-radius:999px;
+  background:var(--panel);color:var(--tx2);font:600 .75rem/1.4 var(--ui);letter-spacing:.04em;cursor:help}
+.wbar{height:4px;background:var(--hair);margin-top:6px}
+.wbar i{display:block;height:100%;background:var(--tx3)}
+
+details.sub-d{margin-top:18px}
+details.how{margin-top:28px}
+details.sub-d>summary,details.how>summary{display:block;min-height:44px;padding:11px 0;cursor:pointer;list-style:none;font:600 .875rem/1.5 var(--ui);color:var(--tx)}
+details.how>summary{font-size:.9375rem}
+details.sub-d>summary:hover,details.how>summary:hover{text-decoration:underline;text-underline-offset:5px}
+details.sub-d>summary .chev,details.how>summary .chev{margin:0 12px 0 2px;vertical-align:2px}
+details.sub-d>summary::-webkit-details-marker,details.how>summary::-webkit-details-marker{display:none}
+.rename{display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;margin-top:20px}
+.rename label{font:600 .75rem/1.3 var(--ui);letter-spacing:.12em;text-transform:uppercase;color:var(--tx3)}
+.bname{font:500 .9375rem var(--ui);color:var(--tx);background:var(--panel);border:1px solid var(--hair2);border-radius:0;
+  padding:0 12px;min-height:44px;width:min(30em,100%)}
+.bname:hover{border-color:var(--tx3)}
+.bname:focus{border-color:var(--tx)}
+.rename .note{margin:0}
+.foot{font:400 .8125rem/1.7 var(--ui);color:var(--tx3);text-align:center;margin:56px auto 0;max-width:72ch}
+
+/* ---------- narrow: the ledger stacks instead of dropping columns. Name on its own line (it wraps),
+   every figure under it with its own label, the chevron moved to the right edge. ---------- */
+@media(max-width:960px){
+  .lhead{display:none}
+  .lgrid{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 14px;align-items:start}
+  .lgrid>.r{text-align:left}
+  .bsum,.ltotal{position:relative}
+  .lgrid>:nth-child(2){grid-column:1/-1;padding-right:28px}
+  .lgrid>.chev{position:absolute;right:16px;top:24px}
+  .ltotal>:first-child{display:none}
+  .lgrid>.num>.sr{position:static;width:auto;height:auto;margin:0 0 3px;clip:auto;overflow:visible;display:block;
+    font:600 .75rem/1.3 var(--ui);letter-spacing:.1em;text-transform:uppercase;color:var(--tx3)}
+}
+@media(max-width:760px){
+  .tscroll table{white-space:nowrap;min-width:640px}
+  .tscroll th,.tscroll td{padding-right:14px}
+  .tscroll td.sym,.tscroll th:first-child{position:sticky;left:0;background:var(--panel);z-index:1}
+  .tscroll tr:hover td.sym{background:var(--panel2)}
+  .tscroll tr.hit td.sym{background:#ebebe9}
+}
+@media(max-width:620px){
+  body{padding:0}
+  .wrap{padding:22px 16px 40px;border-radius:18px 18px 0 0}
+  .lbar{margin-top:40px}
+  .ctl{width:100%}
+  .find{flex:1 1 100%;width:auto}
+  .bsum,.ltotal,.lhead,.bbody{padding-left:10px;padding-right:10px}
+}
 </style></head><body>
-<!-- Same seven links, same order, same icons as every other page. This page had five, so the bar
-     visibly reshaped the moment you navigated to the Tracker. -->
 <div class="ftbar"><nav class="ftnav" aria-label="Main">
 <a href="index.html" class="brand">sharecase</a>
-<a href="basket.html"><svg viewBox="0 0 24 24"><path d="M3 7h18l-1.6 11.2A2 2 0 0 1 17.4 20H6.6a2 2 0 0 1-2-1.8L3 7Z"/><path d="M8 7V5a4 4 0 0 1 8 0v2"/></svg>Baskets</a>
-<a href="dashboard.html"><svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>Dashboard</a>
-<a href="onboarding.html"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/></svg>One-click setup</a>
-<a href="friends.html"><svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v18H6a2 2 0 0 1-2-2V5Z"/><path d="M9 3v18"/></svg>Guide</a>
-<a href="baskets.html" class="on"><svg viewBox="0 0 24 24"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/></svg>Tracker</a>
-<a href="method.html"><svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18"/><circle cx="12" cy="12" r="9"/></svg>Method</a></nav></div>
+<a href="basket.html" data-p="basket.html"><svg viewBox="0 0 24 24"><path d="M3 7h18l-1.6 11.2A2 2 0 0 1 17.4 20H6.6a2 2 0 0 1-2-1.8L3 7Z"/><path d="M8 7V5a4 4 0 0 1 8 0v2"/></svg>Baskets</a>
+<a href="dashboard.html" data-p="dashboard.html"><svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>Dashboard</a>
+<a href="onboarding.html" data-p="onboarding.html"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/></svg>One-click setup</a>
+<a href="friends.html" data-p="friends.html"><svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v18H6a2 2 0 0 1-2-2V5Z"/><path d="M9 3v18"/></svg>Guide</a>
+<a href="baskets.html" data-p="baskets.html"><svg viewBox="0 0 24 24"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/></svg>Tracker</a><a href="method.html" data-p="method.html"><svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18"/><circle cx="12" cy="12" r="9"/></svg>Method</a></nav></div>
+<script>(function(){var f=location.pathname.split('/').pop()||'index.html';
+document.querySelectorAll('.ftnav a[data-p]').forEach(function(a){
+  if(a.getAttribute('data-p')===f){a.classList.add('on');a.setAttribute('aria-current','page');}});})();</script>
 
 <div class="wrap">
 <h1>Basket tracker</h1>
 <div class="sub">Per-basket performance, grouped by the tag its orders were placed under</div>
 
-<div class="panel">
-  <p style="font-size:14px">Drop any JSON that carries <b>order tags</b> — a Kite orders export, or a
+<div class="panel" id="imp"><div id="intro">
+  <p>Drop any JSON that carries <b>order tags</b> — a Kite orders export, or a
   saved batch map. Orders are grouped by their <b>tag</b>, which is the only basket marker Kite
   records, and each group's name is yours to type. The file is read in this browser and never
   uploaded — the only thing that leaves the device is the <b>list of stock symbols</b>, sent to this
   app's own price endpoint. Not your quantities, not your cost, not who you are.</p>
-  <p class="note" style="font-style:normal">Kite sets a tag when an order is placed and never after,
+  <p class="note">Kite sets a tag when an order is placed and never after,
   and holdings carry no tag at all — so snapshot your orders on the day you place them, or the
-  grouping is gone.</p>
-  <label class="drop" id="drop" style="margin-top:14px">
-    <div style="font-family:var(--num);font-size:13px">Drop a <b>batch map JSON</b>, and any number
-      of <b>tradebook .xlsx</b> exports</div>
-    <div class="note" style="font-style:normal">select several at once · everything stays in this
-      browser · tradebooks add realised returns</div>
+  grouping is gone.</p></div>
+  <label class="drop" id="drop">
+    <div class="dh">Drop a batch map JSON, and any number of tradebook .xlsx exports</div>
+    <div class="note">Or click to choose files. Select several at once; everything stays in this
+      browser, and tradebooks add realised returns.</div>
     <input type="file" id="fin" multiple accept=".json,application/json,.xlsx,.xls" class="sr">
   </label>
   <div id="msg"></div>
@@ -202,9 +283,10 @@ text-align:center;background:linear-gradient(160deg,var(--panel),var(--bg2));cur
 
 <div id="out"></div>
 
-<div class="foot">Prices from this app's own <span class="mono">/api/price</span>. Realised returns appear
-once you add a Zerodha tradebook; all figures are gross of charges, and dividends are not exposed by
-Kite's holdings or orders API.
+<div class="foot">Prices come from Yahoo through this app's own <span class="mono">/api/price</span>,
+which receives only the symbols. Realised is FIFO-matched from your tradebooks, plus any sale recorded
+in the map after the last export; with no tradebook it is the recorded ledger alone. Every figure is
+gross of charges, and dividends are in no Kite feed.
 <br>Not investment advice.</div>
 </div>
 
@@ -225,8 +307,10 @@ const Q=v=>PRIVATE?'•••':String(v);
 function togglePrivate(){
   PRIVATE=!PRIVATE;
   try{ localStorage.setItem('sc_private',PRIVATE?'1':'0'); }catch(e){}
+  const had=document.activeElement&&document.activeElement.id==='privbtn';
   if(GROUPS) render();
-  const b=$('privbtn'); if(b) b.textContent=PRIVATE?'Show amounts':'Hide amounts';
+  const b=$('privbtn'); if(b){ b.textContent=PRIVATE?'Show amounts':'Hide amounts';
+    if(had) b.focus(); }   // render() replaced the button; keep the keyboard where it was
 }
 const cls=v=>v>=0?'pos':'neg';
 const sgn=v=>v>=0?'+':'−';
@@ -293,7 +377,7 @@ function forget(){
   // The tags, and the names you gave them, are position metadata too - so Forget removes all three.
   try{ [DATAKEY,NAMEKEY,OPENKEY,TRADEKEY].forEach(k=>localStorage.removeItem(k)); }catch(e){}
   TRADES={};
-  GROUPS=null; PX={}; $('out').innerHTML=''; $('saved').innerHTML='';
+  GROUPS=null; PX={}; $('out').innerHTML=''; $('saved').innerHTML=''; $('imp').classList.remove('loaded');
   say('Forgotten. Drop a file to start again.','warn'); }
 const ago=iso=>{ const m=Math.round((Date.now()-new Date(iso))/60000);
   if(m<1) return 'just now'; if(m<60) return m+' min ago';
@@ -313,13 +397,14 @@ function allBaskets(v){ document.querySelectorAll('details.bk').forEach(d=>{
 function stampTrades(){
   const n=Object.keys(TRADES).length;
   if(!n) return;
-  $('saved').innerHTML=`<div class="saved">${n} trades held in this browser only, from your tradebook
-    files. <button class="sm" onclick="forget()">Forget this data</button></div>`;
+  $('saved').innerHTML=`<div class="saved"><span>${n} trades held in this browser only, from your tradebook
+    files.</span> <span class="sacts"><button class="sm" onclick="forget()">Forget this data</button></span></div>`;
 }
 
-function stamp(at){ $('saved').innerHTML=`<div class="saved">Showing the file you imported
-  <b>${esc(ago(at))}</b>. Held in this browser only. Prices are refetched live, which sends the symbol names.
-  <button class="sm" onclick="forget()">Forget this data</button></div>`; }
+function stamp(at){ $('saved').innerHTML=`<div class="saved"><span>Showing the file you imported
+  <b>${esc(ago(at))}</b>, held in this browser only. Prices are fetched live, which sends only the symbols.</span>
+  <span class="sacts"><button class="sm" onclick="$('fin').click()">Replace files</button>
+  <button class="sm" onclick="forget()">Forget this data</button></span></div>`; }
 const UNTAGGED='__untagged__';
 
 // One request for every symbol across every basket. The endpoint reads Yahoo server-side, which a
@@ -432,7 +517,8 @@ function render(){
   const dualWho=s=>(seen[s]||[]).map(x=>`${x.tag} ${Q(x.q)}`).join(' + ')
     + (seen[s].length>1?` = ${Q(seen[s].reduce((a,x)=>a+x.q,0))}`:'');
 
-  let html='', gLedger=0, gVal=0, gCost=0, gCostPriced=0, gValPriced=0, gAdj=0, gRealised=0;
+  let html='', gLedger=0, gVal=0, gCost=0, gCostPriced=0, gValPriced=0, gAdj=0, gRealised=0,
+      gRCost=0, gMixed=false, nStocks=0;
   // computed once per render, not per basket
   const TB=Object.keys(TRADES).length?tbRealised():null;
   const TB_ALL=TB?tbAttribute(TB.matched):{};
@@ -533,196 +619,141 @@ function render(){
 
     // <details> rather than a JS accordion: it collapses with no script, is keyboard operable and
     // Ctrl-F still finds text inside a closed one in current browsers.
-    const flag = cas.length ? '<span class="bflag" title="Corporate action pending — figures understate">!</span>'
-               : suspect.length ? '<span class="bflag warnflag" title="A holding is down more than 50% — check for an uncredited split or bonus">?</span>' : '';
-    html+=`<details class="bk panel" data-tag="${esc(tag)}" ${opens()[tag]?'open':''}>
-      <summary class="bsum">
+    const flag = cas.length ? ' <span class="bflag" title="Corporate action pending — figures understate">Shares pending</span>'
+               : suspect.length ? ' <span class="bflag warnflag" title="A holding is down more than 50% — check for an uncredited split or bonus">Check for a split</span>' : '';
+    // TOTAL RETURN. In rupees unrealised and realised simply add. As a PERCENTAGE they cannot share the
+    // unrealised denominator - realised was earned on capital that has already come back - so the one
+    // honest base is every rupee the basket ever put to work: cost sold + cost still held. Not
+    // time-weighted (XIRR needs which basket each BUY belonged to, and a tradebook carries no tag).
+    // costPriced, not cost: `unreal` covers priced rows only. When one basket mixes FIFO and ledger cost
+    // bases the numerator and denominator come from different books, so the ratio is refused.
+    const hasReal = !!(tb||sells.length);
+    const totR = unreal!=null ? unreal+realised : null, cap = costPriced + rCost;
+    const soft = TB_UNDATEABLE.indexOf(tag)>=0;
+    const pctU = unreal!=null&&costPriced ? sgn(unreal)+Math.abs(unreal/costPriced*100).toFixed(2)+'%' : '—';
+    const pctT = totR!=null&&cap&&!mixedConv ? sgn(totR)+Math.abs(totR/cap*100).toFixed(2)+'%' : '—';
+    const rupU = unreal!=null ? sgn(unreal)+M(Math.abs(unreal)) : '—';
+    const rupR = hasReal ? sgn(realised)+M(Math.abs(realised)) : '—';
+    gRCost+=rCost; gMixed=gMixed||mixedConv; nStocks+=rows.length;
+    const realCap = mixedConv ? realSrc+' · % withheld: two cost bases'
+      : rCost ? sgn(realised)+Math.abs(realised/rCost*100).toFixed(1)+'% on what was sold · '+realSrc
+      : hasReal ? realSrc+', gross of charges' : 'no sales recorded';
+    html+=`<details class="bk" data-tag="${esc(tag)}" data-syms="${esc(rows.map(r=>r.s).join(' '))}" ${opens()[tag]?'open':''}>
+      <summary class="bsum lgrid">
         <span class="chev" aria-hidden="true"></span>
-        <span class="btitle">${esc(nameFor(tag,G.label))}</span>
-        <span class="tag ${tag===UNTAGGED?'none':G.src==='internal'?'int':''}"
-          title="${G.src==='internal'
-            ?'Our own label. Kite has no record of it — these orders were placed before we tagged, or cannot be tagged at all.'
-            :'Recorded by Kite against the order at placement.'}"
-          >${tag===UNTAGGED?'no tag':esc(tag)}${G.src==='internal'?' <b>· internal</b>':''}</span>
-        <span class="note bn" style="margin:0;font-style:normal">${rows.length} stocks</span>${flag}
-        <span class="bmoney"><span class="bcost mono" title="Invested — what you paid. Same figure as
-the Invested card inside, from the same variable, so the open and closed views cannot drift apart."
-          >${cost?M(cost):'—'}</span><span class="barrow" aria-hidden="true">→</span><span
-          class="bfig mono" title="Current value">${M(val)}</span></span>
-        <span class="bpnl mono ${unreal!=null?cls(unreal):''}" title="Unrealised, in rupees">${
-          unreal!=null?sgn(unreal)+M(Math.abs(unreal)):'—'}</span>
-        <span class="bpct mono ${unreal!=null?cls(unreal):''}" title="Unrealised, as a percentage of cost — what you still hold. Excludes gains already banked by selling.">${
-          unreal!=null&&costPriced
-          ?sgn(unreal)+Math.abs(unreal/costPriced*100).toFixed(2)+'%':'—'}</span>
-        ${(rCost&&unreal!=null)?`<span class="btot mono ${mixedConv?'':cls(unreal+realised)}"
-          title="TOTAL return: unrealised plus realised, over everything ever deployed (${M(costPriced+rCost)}).
-Higher than the unrealised figure whenever a rebalance has banked a gain, because trimming a winner
-moves its profit out of 'unrealised' and into 'realised'.${mixedConv?' Ratio withheld here: this basket mixes FIFO and ledger cost bases.':''}"
-          >${mixedConv?'tot —':'tot '+sgn(unreal+realised)+Math.abs((unreal+realised)/(costPriced+rCost)*100).toFixed(2)+'%'}</span>`:''}
+        <span><span class="btitle">${esc(nameFor(tag,G.label))}</span>${flag}
+          <span class="bmeta"><span class="tag ${tag===UNTAGGED?'none':G.src==='internal'?'int':''}"
+            title="${G.src==='internal'
+              ?'Our own label. Kite has no record of it — these orders were placed before we tagged, or cannot be tagged at all.'
+              :'Recorded by Kite against the order at placement.'}"
+            >${tag===UNTAGGED?'no tag':esc(tag)}${G.src==='internal'?' <b>· internal</b>':''}</span> · ${rows.length} stocks</span></span>
+        <span class="r num mono wide"><span class="sr">Invested </span>${cost?M(cost):'—'}</span>
+        <span class="r num mono"><span class="sr">Value </span>${M(val)}</span>
+        <span class="r num mono wide ${unreal!=null?cls(unreal):''}"><span class="sr">Unrealised </span>${rupU}</span>
+        <span class="r num mono ${unreal!=null?cls(unreal):''}"><span class="sr">Return </span>${pctU}</span>
+        <span class="r num mono wide ${hasReal?cls(realised):''}"><span class="sr">Realised </span>${rupR}</span>
+        <span class="r num mono wide ${pctT!=='—'?cls(totR):''}"><span class="sr">Total </span>${pctT}</span>
       </summary>
-      <div class="rename">
-        <label for="nm-${esc(tag)}">Basket name</label>
-        <input class="bname" id="nm-${esc(tag)}" value="${esc(nameFor(tag,G.label))}"
-          data-tag="${esc(tag)}" spellcheck="false">
-        <span class="note" style="margin:0;font-style:normal">yours to choose — saved in this browser</span>
-      </div>
-      <div class="perf" style="margin-top:14px">
-        <div class="c"><div class="k">Current value</div><div class="v mono">${M(val)}</div>
-          <div class="s">${priced.length} of ${rows.length} priced</div></div>
-        <div class="c"><div class="k">Invested</div><div class="v mono">${M(cost)}</div>
-          <div class="s">${noCost.length?costed.length+' of '+rows.length+' have a cost basis'
-            :priced.length===rows.length?'cost of what is held'
-            :'all '+rows.length+' holdings — no price needed'}</div></div>
-        <div class="c"><div class="k">Unrealised</div>
-          <div class="v mono ${unreal!=null?cls(unreal):''}">${unreal!=null
-            ?sgn(unreal)+M(Math.abs(unreal)):'—'}</div>
-          <div class="s ${unreal!=null?cls(unreal):''}">${unreal!=null&&costPriced
-            ?sgn(unreal)+Math.abs(unreal/costPriced*100).toFixed(2)+'%'
-            :'needs live prices'}</div></div>
-        <div class="c"><div class="k">Realised</div>
-          <div class="v mono ${(tb||sells.length)?cls(realised):''}" ${(tb||sells.length)?'':'style="color:var(--tx3)"'}>${
-            (tb||sells.length)?sgn(realised)+M(Math.abs(realised)):'—'}</div>
-          <div class="s ${(rCost&&!mixedConv)?cls(realised):''}">${
-            // Denominator is rCost - the sold cost of WHICHEVER sources supplied `realised`. It was
-            // tb.cost alone, so a basket with FIFO and newer ledger sales divided both numerators by
-            // one denominator, overstating the percentage by about a point.
-            mixedConv ? realSrc+' · % withheld: two cost bases'
-            : rCost ? sgn(realised)+Math.abs(realised/rCost*100).toFixed(1)+'% on what was sold'
-            : (tb||sells.length) ? realSrc+', gross of charges' : 'no sales recorded'}</div></div>
-      </div>
-      ${(()=>{
-        // TOTAL RETURN. In rupees the two simply add. As a PERCENTAGE they cannot share the
-        // unrealised denominator - realised was earned on capital that has already come back, and
-        // dividing it by the cost of what is still held would be a different quantity entirely.
-        // The one honest denominator is every rupee the basket ever put to work:
-        //     cost of the shares sold  +  cost of the shares still held
-        // It is deliberately NOT time-weighted. Capital returned in April counts the same as capital
-        // still deployed today, so a basket that made 5% in a week reads like one that took a year.
-        // XIRR is what fixes that and it is not computable here: building a per-basket cash-flow
-        // series needs to know which basket each BUY belonged to, and a tradebook carries no tag.
-        if(unreal==null) return '';
-        const rz = realised, cs = rCost;         // whichever source supplied realised, above
-        if(!cs) return '';                       // nothing sold: total return IS the current return
-        // Two cost conventions must not be silently averaged into one ratio. FIFO costs a sale at the
-        // actual oldest lot; the ledger costs it at the map's blended average, and on the same shares
-        // the two differ by several percent of the gain. Map fills past the last export now go through
-        // FIFO (tbMapFills), so this should not normally trigger - but if one basket ever has BOTH a
-        // tradebook sale and a newer ledger-only sale, the numerator and denominator come from different
-        // books and no caption can rescue the percentage - so print the rupees and refuse the ratio.
-        const mixed = !!tb && fresh.length > 0;
-        // costPriced, not cost: `unreal` covers priced rows only, so dividing by a cost that still includes
-        // an unpriced row's rupees put that row's cost under the line with nothing above it - one large
-        // unpriced holding moved a basket's figure by nearly half a point.
-        const totR = unreal + rz, cap = costPriced + cs;
-        const soft = TB_UNDATEABLE.indexOf(tag)>=0;
-        return `<div class="perf perf2" style="border-bottom:none;padding-bottom:0">
-          <div class="c"><div class="k">Current return</div>
-            <div class="v mono ${cls(unreal)}">${sgn(unreal)}${Math.abs(unreal/costPriced*100).toFixed(2)}%</div>
-            <div class="s">${sgn(unreal)}${M(Math.abs(unreal))} on what you still hold</div></div>
-          <div class="c"><div class="k">Total return</div>
-            <div class="v mono ${mixed?'':cls(totR)}" ${mixed?'style="color:var(--tx3)"':''}>${
-              mixed?'—':sgn(totR)+Math.abs(totR/cap*100).toFixed(2)+'%'}</div>
-            <div class="s">${sgn(totR)}${M(Math.abs(totR))} on ${M(cap)} ever deployed${
-              mixed?' · <b>ratio withheld</b>':soft?' · <b>see caveat</b>':''}</div></div>
+      <div class="bbody">
+        <div class="bfacts">
+          <span class="m">Invested <b>${cost?M(cost):'—'}</b></span>
+          <span class="m">Unrealised <b class="${unreal!=null?cls(unreal):''}">${rupU}</b></span>
+          <span>Realised <b class="${hasReal?cls(realised):''}">${rupR}</b> · ${realCap}</span>
+          <span>Total return <b class="${pctT!=='—'?cls(totR):''}">${mixedConv?'withheld':pctT}</b>${
+            totR!=null?` · ${sgn(totR)}${M(Math.abs(totR))} on ${M(cap)} ever deployed`:''}${soft?' · see caveat':''}</span>
+          <span>${priced.length} of ${rows.length} priced${noCost.length?' · '+costed.length+' with a cost basis':''}</span>
         </div>
-        ${mixed?`<div class="warn" style="margin-top:10px"><b>Total return percentage withheld for this
+        ${mixedConv?`<div class="warn" style="margin-top:10px"><b>Total return percentage withheld for this
           basket.</b> Its realised figure combines <b>${TB_LAST} and earlier from the tradebook</b>
           (costed at the actual oldest lot, FIFO) with <b>${fresh.length} newer sale${
           fresh.length===1?'':'s'} from the recorded ledger</b> (costed at this basket's blended
           average). The rupee total is right; the percentage would divide a figure from one book by a
-          denominator from another, and the two conventions can differ by several percent of the gain
-          on the same shares. Re-export the tradebook so every sale is FIFO-costed and the ratio
+          denominator from another. Re-export the tradebook so every sale is FIFO-costed and the ratio
           returns.</div>`:''}
         ${soft?`<div class="warn" style="margin-top:10px">This basket records no start date, so its
           realised figure may include your own trading in these symbols <b>before the basket existed</b>.
-          Its total return is therefore softer than the others on this page.</div>`:''}`;
-      })()}
-      ${unpriced.length?`<div class="warn">No live price for <b>${unpriced.map(esc).join(', ')}</b> —
-        excluded from Current value and Unrealised. Invested still counts it, because what you paid
-        needs no price, so <b>Value minus Invested will not equal Unrealised</b> while this shows.</div>`:''}
-      ${cas.length?`<div class="ca">
-        <b>Corporate action pending — this basket's figures understate.</b>
-        ${cas.map(c=>`<div style="margin-top:6px"><b>${esc(c.s)}</b>: ${num(c.ratio)}-for-1.
-          Price already adjusted, but <b>${Q(c.trueQ-c.q)} of this basket's ${Q(c.trueQ)} shares are not
-          yet credited</b>. Shown ${M(c.val)}, worth ${M(c.trueVal)} once they land
-          (<span class="mono">${sgn(c.adj)}${M(Math.abs(c.adj))}</span>).</div>`).join('')}
-        <div style="margin-top:7px">This basket: <b class="${cls(unreal)}">${sgn(unreal)}${M(Math.abs(unreal))}</b>
-          shown, <b class="${cls(unreal+adj)}">${sgn(unreal+adj)}${M(Math.abs(unreal+adj))}</b>
-          (${costPriced?sgn(unreal+adj)+Math.abs((unreal+adj)/costPriced*100).toFixed(2)+'%':'—'})
-          once credited. It self-corrects — don't sell until the shares appear.</div>
-      </div>`:''}
-      ${caBad.length?`<div class="warn"><b>${caBad.map(r=>esc(r.s)).join(', ')}</b> — a corporate
-        action is recorded but its ratio is not a usable number, so no correction has been applied.
-        Fix <span class="mono">pending_ca.ratio</span> in the file.</div>`:''}
-      ${noCost.length?`<div class="warn">No cost basis for <b>${noCost.map(esc).join(', ')}</b> —
-        the file sells shares whose purchase it does not contain, or records no average price. Those
-        rows are left out of Invested and Unrealised rather than counted at a guessed cost.</div>`:''}
-      ${suspect.length?`<div class="warn"><b>${suspect.map(r=>esc(r.s)).join(', ')}</b> —
-        down more than half since you bought. That may simply be a bad holding. But if the price fell
-        that far in one session it cannot be the market, because NSE price bands cap a session at
-        about 20% — so it would be a split or bonus whose shares have not reached your demat. This
-        page only sees your cost, not yesterday's close, so it cannot tell which. If it is a
-        corporate action, record <span class="mono">pending_ca</span> against the holding.</div>`:''}
-      ${sells.length?`<div class="sells">
-        <b>Sold from this basket, as recorded by hand</b> — ${M(lProceeds)} of proceeds,
-        ${sgn(lRealised)}${M(Math.abs(lRealised))} realised <b>gross</b>.
-        ${tb?`The Realised figure above is <b>${sgn(realised)}${M(Math.abs(realised))}</b> from your
-          tradebooks, which cover all history; this table lists only the sales written into the map
-          by hand.`:''} Brokerage, STT, stamp duty and GST are in no Kite endpoint, so your net
-        is lower. Dividends are not here either.
-        <table style="margin-top:8px"><thead><tr><th>Stock</th><th class="r">Shares</th>
-          <th class="r">Price</th><th class="r">Proceeds</th><th class="r">Realised</th>
-          <th>When</th></tr></thead><tbody>
-        ${sells.map(x=>`<tr><td class="sym">${esc(x.s||'?')}</td><td class="r mono">${Q(+x.q)}</td>
-          <td class="r mono">${num(x.price)}</td><td class="r mono">${M(+x.proceeds||0)}</td>
-          <td class="r mono ${cls(+x.realised_gross||0)}">${sgn(+x.realised_gross||0)}${M(Math.abs(+x.realised_gross||0))}</td>
-          <td class="mono" style="font-size:12px">${esc(x.date||'—')}</td></tr>`).join('')}
-        </tbody></table></div>`:''}
-      ${G.sc?`<div class="scbox">
-        <b>The platform reports ${num(G.sc.total_returns_pct)}% total return</b> (${M(G.sc.total_returns)})
-        against our ${cost?(unreal!=null?sgn(unreal)+Math.abs(unreal/costPriced*100).toFixed(2)+'%':'—'):'—'},
-        and both are right. Theirs includes <b>${M(G.sc.realized_returns)} realised</b> from past
-        rebalances and <b>${M(G.sc.dividends)} of dividends</b>; ours is <b>unrealised only</b>, on
-        your broker's cost basis. Kite's APIs expose neither, so we understate by design — and
-        their cost basis is ${M(G.sc.current_investment)} to our ${M(cost)} because they fold the
-        realised amount back in. XIRR ${num(G.sc.xirr_pct)}%.
-        ${val&&G.sc.current_value?`Value cross-check: <span class="mono">${M(val)}</span> ours vs
-          <span class="mono">${M(G.sc.current_value)}</span> theirs
-          (<span class="mono">${sgn(val-G.sc.current_value)}${M(Math.abs(val-G.sc.current_value))}</span>,
-          different moments in the same session).`:''}
-        ${G.sc.next_rebalance?`<br>Next rebalance <b>${esc(G.sc.next_rebalance)}</b> — this basket's
-          constituents go stale then and must be re-captured.`:''}
-      </div>`:''}
-      <table><thead><tr><th>Stock</th><th class="r">Shares</th><th class="r">Avg buy</th>
-        <th class="r">Price now</th><th class="r">Invested</th><th class="r">Value</th>
-        <th class="r">P&amp;L</th><th class="r">Return</th>
-        <th class="r">Weight</th></tr></thead><tbody>
-      ${rows.map(r=>{
-        // No cost basis => no P&L and no return. Both would be measured against nothing.
-        const pnl=(r.val!=null&&!r.noCost)?r.val-r.cost:null;
-        const ret=pnl!=null?(r.px/r.avg-1)*100:null, w=r.val!=null&&val?r.val/val*100:0;
-        return `<tr><td class="sym">${esc(r.s)}${dual.includes(r.s)
-          // Names the other baskets and the share split, on hover AND in the chip text. `title` is a
-          // native tooltip: no click handler, works on keyboard focus, and survives with JS disabled.
-          // Touch devices get no hover at all, which is why the text itself carries the answer too.
-          ?`<span class="dual" title="${esc(r.s)} is split across baskets: ${esc(dualWho(r.s))}. Kite
-reports ONE merged holding, so only this map knows which lot belongs to which basket - and trimming
-the wrong one is how a rebalance silently breaks the other basket.">${esc(
-            (seen[r.s]||[]).map(x=>x.tag).join(' + '))}</span>`:''}</td>
-          <td class="r mono">${Q(r.q)}</td>
-          <td class="r mono">${r.noCost?'—':r.avg.toFixed(2)}</td>
-          <td class="r mono">${r.px!=null?r.px.toFixed(2):'—'}</td>
-          <td class="r mono">${r.noCost?'—':M(r.cost)}</td>
-          <td class="r mono">${r.val!=null?M(r.val):'—'}</td>
-          <td class="r mono ${pnl!=null?cls(pnl):''}">${pnl!=null?sgn(pnl)+M(Math.abs(pnl)):'—'}</td>
-          <td class="r mono ${ret!=null?cls(ret):''}">${ret!=null?sgn(ret)+Math.abs(ret).toFixed(2)+'%':'—'}</td>
-          <td class="r mono">${r.val!=null?w.toFixed(2)+'%':'—'}
-            ${r.val!=null?`<div class="wbar"><i style="width:${Math.min(100,w*3).toFixed(1)}%"></i></div>`:''}</td>
-        </tr>`;}).join('')}
-      </tbody></table></details>`;
+          Its total return is therefore softer than the others on this page.</div>`:''}
+        ${unpriced.length?`<div class="warn">No live price for <b>${unpriced.map(esc).join(', ')}</b> —
+          excluded from Value and Unrealised. Invested still counts it, because what you paid needs no
+          price, so <b>Value minus Invested will not equal Unrealised</b> while this shows.</div>`:''}
+        ${cas.length?`<div class="ca">
+          <b>Corporate action pending — this basket's figures understate.</b>
+          ${cas.map(c=>`<div style="margin-top:6px"><b>${esc(c.s)}</b>: ${num(c.ratio)}-for-1.
+            Price already adjusted, but <b>${Q(c.trueQ-c.q)} of this basket's ${Q(c.trueQ)} shares are not
+            yet credited</b>. Shown ${M(c.val)}, worth ${M(c.trueVal)} once they land
+            (<span class="mono">${sgn(c.adj)}${M(Math.abs(c.adj))}</span>).</div>`).join('')}
+          <div style="margin-top:7px">This basket: <b class="${cls(unreal)}">${sgn(unreal)}${M(Math.abs(unreal))}</b>
+            shown, <b class="${cls(unreal+adj)}">${sgn(unreal+adj)}${M(Math.abs(unreal+adj))}</b>
+            (${costPriced?sgn(unreal+adj)+Math.abs((unreal+adj)/costPriced*100).toFixed(2)+'%':'—'})
+            once credited. It self-corrects — don't sell until the shares appear.</div>
+        </div>`:''}
+        ${caBad.length?`<div class="warn"><b>${caBad.map(r=>esc(r.s)).join(', ')}</b> — a corporate
+          action is recorded but its ratio is not a usable number, so no correction has been applied.
+          Fix <span class="mono">pending_ca.ratio</span> in the file.</div>`:''}
+        ${noCost.length?`<div class="warn">No cost basis for <b>${noCost.map(esc).join(', ')}</b> —
+          the file sells shares whose purchase it does not contain, or records no average price. Those
+          rows are left out of Invested and Unrealised rather than counted at a guessed cost.</div>`:''}
+        ${suspect.length?`<div class="warn"><b>${suspect.map(r=>esc(r.s)).join(', ')}</b> — down more
+          than half since you bought. Perhaps just a bad holding, but NSE bands cap a session at about 20%,
+          so a fall that size in one session would be a split or bonus not yet in your demat. If it is,
+          record <span class="mono">pending_ca</span> against the holding.</div>`:''}
+        ${G.sc?`<div class="scbox">
+          <b>The platform reports ${num(G.sc.total_returns_pct)}% total return</b> (${M(G.sc.total_returns)})
+          against our ${pctU}, and both are right. Theirs includes <b>${M(G.sc.realized_returns)} realised</b>
+          and <b>${M(G.sc.dividends)} of dividends</b>; ours is unrealised only, on your broker's cost
+          basis (${M(cost)} against their ${M(G.sc.current_investment)}). XIRR ${num(G.sc.xirr_pct)}%.
+          ${G.sc.next_rebalance?`Next rebalance <b>${esc(G.sc.next_rebalance)}</b>.`:''}
+        </div>`:''}
+        <div class="tscroll"><table><thead><tr><th>Stock</th><th class="r">Value</th>
+          <th class="r">P&amp;L</th><th class="r">Return</th><th class="r">Weight</th>
+          <th class="r">Shares</th><th class="r">Avg buy</th><th class="r">Price now</th>
+          <th class="r">Invested</th></tr></thead><tbody>
+        ${rows.map(r=>{
+          // No cost basis => no P&L and no return. Both would be measured against nothing.
+          const pnl=(r.val!=null&&!r.noCost)?r.val-r.cost:null;
+          const ret=pnl!=null?(r.px/r.avg-1)*100:null, w=r.val!=null&&val?r.val/val*100:0;
+          return `<tr data-sym="${esc(r.s)}"><td class="sym">${esc(r.s)}${dual.includes(r.s)
+            // Names the other baskets on the chip itself (touch has no hover) and the split on hover.
+            ?`<span class="dual" title="${esc(r.s)} is split across baskets: ${esc(dualWho(r.s))}. Kite
+reports ONE merged holding, so only this map knows which lot belongs to which basket.">${esc(
+              (seen[r.s]||[]).map(x=>x.tag).join(' + '))}</span>`:''}</td>
+            <td class="r mono">${r.val!=null?M(r.val):'—'}</td>
+            <td class="r mono ${pnl!=null?cls(pnl):''}">${pnl!=null?sgn(pnl)+M(Math.abs(pnl)):'—'}</td>
+            <td class="r mono ${ret!=null?cls(ret):''}">${ret!=null?sgn(ret)+Math.abs(ret).toFixed(2)+'%':'—'}</td>
+            <td class="r mono">${r.val!=null?w.toFixed(2)+'%':'—'}
+              ${r.val!=null?`<div class="wbar"><i style="width:${Math.min(100,w*3).toFixed(1)}%"></i></div>`:''}</td>
+            <td class="r mono">${Q(r.q)}</td>
+            <td class="r mono">${r.noCost?'—':r.avg.toFixed(2)}</td>
+            <td class="r mono">${r.px!=null?r.px.toFixed(2):'—'}</td>
+            <td class="r mono">${r.noCost?'—':M(r.cost)}</td>
+          </tr>`;}).join('')}
+        </tbody></table></div>
+        ${sells.length?`<details class="sub-d"><summary><span class="chev" aria-hidden="true"></span>Sales recorded by
+          hand (${sells.length}) · ${M(lProceeds)} proceeds · <span class="${cls(lRealised)}">${sgn(lRealised)}${M(Math.abs(lRealised))}</span> gross</summary>
+          <div class="sells">${tb?`The Realised figure above is <b>${rupR}</b> from your tradebooks, which
+            cover all history; this lists only the sales written into the map by hand. `:''}Charges and
+            dividends are in no Kite endpoint, so your net differs.
+          <div class="xscroll"><table><thead><tr><th>Stock</th><th class="r">Shares</th>
+            <th class="r">Price</th><th class="r">Proceeds</th><th class="r">Realised</th>
+            <th>When</th></tr></thead><tbody>
+          ${sells.map(x=>`<tr><td class="sym">${esc(x.s||'?')}</td><td class="r mono">${Q(+x.q)}</td>
+            <td class="r mono">${num(x.price)}</td><td class="r mono">${M(+x.proceeds||0)}</td>
+            <td class="r mono ${cls(+x.realised_gross||0)}">${sgn(+x.realised_gross||0)}${M(Math.abs(+x.realised_gross||0))}</td>
+            <td class="mono dt">${esc(x.date||'—')}</td></tr>`).join('')}
+          </tbody></table></div></div></details>`:''}
+        <div class="rename">
+          <label for="nm-${esc(tag)}">Name</label>
+          <input class="bname" id="nm-${esc(tag)}" value="${esc(nameFor(tag,G.label))}"
+            data-tag="${esc(tag)}" spellcheck="false">
+          <span class="note" style="margin:0">saved in this browser</span>
+        </div>
+      </div></details>`;
   }
 
   const gUn=gCostPriced?gValPriced-gCostPriced:null;
+  const gTot=gUn!=null?gUn+gRealised:null, gCap=gCostPriced+gRCost;
+  const gPctU=gUn!=null&&gCostPriced?sgn(gUn)+Math.abs(gUn/gCostPriced*100).toFixed(2)+'%':'—';
+  const gPctT=gTot!=null&&gCap&&!gMixed?sgn(gTot)+Math.abs(gTot/gCap*100).toFixed(2)+'%':'—';
   const gAdjNote=gAdj&&gUn!=null?`<div class="ca" style="margin-top:14px">
     <b>Portfolio total, corrected for shares not yet credited:</b>
     <span class="mono">${sgn(gUn)}${M(Math.abs(gUn))}</span> shown
@@ -731,84 +762,76 @@ the wrong one is how a rebalance silently breaks the other basket.">${esc(
     (<b>${sgn(gUn+gAdj)}${Math.abs((gUn+gAdj)/gCostPriced*100).toFixed(2)}%</b>).
     The difference is <span class="mono">${M(Math.abs(gAdj))}</span> of shares the exchange has
     allotted but your demat has not received.</div>`:'';
-  $('out').innerHTML=`<h2>All baskets</h2><div class="panel">
-    <div class="perf">
-      <div class="c"><div class="k">Total value</div><div class="v mono">${M(gVal)}</div>
-        <div class="s">${Object.keys(GROUPS).length} baskets${gAdj?' · before pending shares':''}</div></div>
-      <div class="c"><div class="k">Total invested</div><div class="v mono">${M(gCost)}</div></div>
-      <div class="c"><div class="k">Realised</div>
-        <div class="v mono ${gRealised?cls(gRealised):''}" ${gRealised?'':'style="color:var(--tx3)"'}>${
-          gRealised?sgn(gRealised)+M(Math.abs(gRealised)):'—'}</div>
-        <div class="s">${gRealised?(!TB?'recorded sales, gross'
-          :Math.abs(gLedger)>0.5?`baskets only · FIFO + ${M(Math.abs(gLedger))} recorded after the tradebook ends · gross`
-          :'baskets only, FIFO, gross'):'no sales recorded'}</div></div>
-      <div class="c"><div class="k">Unrealised</div>
-        <div class="v mono ${gUn!=null?cls(gUn):''}">${gUn!=null?sgn(gUn)+M(Math.abs(gUn)):'—'}</div>
-        <div class="s ${gUn!=null?cls(gUn):''}">${gUn!=null&&gCostPriced
-          ?sgn(gUn)+Math.abs(gUn/gCostPriced*100).toFixed(2)+'%':'needs live prices'}</div></div>
+  $('out').innerHTML=`${TB?dupeWarning():''}${gAdjNote}
+    <div class="lbar"><h2>By basket</h2>
+      <div class="ctl">
+        <input id="find" class="find" type="search" placeholder="Find a stock" autocomplete="off"
+          aria-label="Find a stock across baskets" aria-describedby="findres">
+        <button class="sm" onclick="allBaskets(true)">Expand all</button>
+        <button class="sm" onclick="allBaskets(false)">Collapse all</button>
+        <button class="np ghost" id="privbtn" onclick="togglePrivate()"
+          title="Hide every rupee amount and share count, keep the percentages. For screenshots."
+          >${PRIVATE?'Show amounts':'Hide amounts'}</button>
+      </div>
     </div>
-    ${dual.length?`<div class="warn"><b>${dual.length} stock${dual.length>1?'s appear':' appears'} in more
-      than one basket</b>, and the split is what matters — Kite reports one merged holding per symbol,
-      so this map is the only record of which lot belongs to which basket:
+    <p id="findres" class="findres" role="status"></p>
+    <div class="ledger">
+      <div class="lgrid lhead" aria-hidden="true"><span></span><span>Basket</span>
+        <span class="r wide">Invested</span><span class="r">Value</span><span class="r wide">Unrealised</span>
+        <span class="r" title="Unrealised, as a percentage of the cost of what you still hold">Return</span>
+        <span class="r wide">Realised</span>
+        <span class="r wide" title="Unrealised plus realised, over everything ever deployed">Total</span></div>
+      ${html}
+      <div class="lgrid ltotal"><span></span>
+        <span><span class="lname">All baskets</span><span class="bmeta">${Object.keys(GROUPS).length} baskets · ${nStocks} holdings${gAdj?' · before pending shares':''}</span></span>
+        <span class="r num mono wide"><span class="sr">Invested </span>${M(gCost)}</span>
+        <span class="r num mono"><span class="sr">Value </span>${M(gVal)}</span>
+        <span class="r num mono wide ${gUn!=null?cls(gUn):''}"><span class="sr">Unrealised </span>${gUn!=null?sgn(gUn)+M(Math.abs(gUn)):'—'}</span>
+        <span class="r num mono ${gUn!=null?cls(gUn):''}"><span class="sr">Return </span>${gPctU}</span>
+        <span class="r num mono wide ${gRealised?cls(gRealised):''}"><span class="sr">Realised </span>${gRealised?sgn(gRealised)+M(Math.abs(gRealised)):'—'}</span>
+        <span class="r num mono wide ${gPctT!=='—'?cls(gTot):''}"><span class="sr">Total </span>${gPctT}</span>
+      </div>
+    </div>
+    <p class="note">Return is unrealised, on the cost of what you still hold. Total adds realised and divides
+      by everything ever deployed. Gross of charges; dividends are not in any Kite feed.</p>
+    <details class="how"><summary><span class="chev" aria-hidden="true"></span>How these numbers are built</summary>
+    ${dual.length?`<div class="sells"><b>${dual.length} stock${dual.length>1?'s are':' is'} held in more than
+      one basket.</b> Kite reports one merged holding per symbol, so this map is the only record of which
+      lot belongs to which basket. Weights are computed inside each basket, so your real exposure to
+      these is the sum, and rebalancing one basket cannot see the other half:
       <div style="margin-top:6px">${dual.map(s=>
-        `<div class="mono" style="font-size:12px">${esc(s)} &nbsp; ${esc(dualWho(s))}</div>`).join('')}</div>
-      <div style="margin-top:6px">Weights are computed inside each basket, so these are counted in
-      both — correct per basket, but your real exposure is the sum, and rebalancing one basket cannot
-      see the other half.</div></div>`:''}
-    </div>
-    ${TB?dupeWarning():''}
+        `<div class="mono" style="font-size:12.5px">${esc(s)} &nbsp; ${esc(dualWho(s))}</div>`).join('')}</div></div>`:''}
     ${TB?`<div class="sells" style="margin-top:14px">
       <b>From your tradebooks</b> — ${Object.keys(TRADES).length} trades,
       ${TB.matched.length} lots matched FIFO. Realised <b>${sgn(TBSUM.all)}${M(Math.abs(TBSUM.all))}</b>
-      in total, of which only <b>${sgn(TBSUM.baskets)}${M(Math.abs(TBSUM.baskets))}</b> belongs to the
-      baskets above.
+      in total, of which <b>${sgn(TBSUM.baskets)}${M(Math.abs(TBSUM.baskets))}</b> belongs to the baskets
+      above. The rest:
       <table style="margin-top:8px"><thead><tr><th>Where</th><th class="r">Realised</th>
         <th>Why it is not in a basket</th></tr></thead><tbody>
       ${TBSUM.unknown?`<tr><td class="sym">Closed positions</td>
-        <td class="r mono ${cls(TBSUM.unknown)}">${sgn(TBSUM.unknown)}${M(Math.abs(TBSUM.unknown))}</td>
+        <td class="r mono num ${cls(TBSUM.unknown)}">${sgn(TBSUM.unknown)}${M(Math.abs(TBSUM.unknown))}</td>
         <td>never in any basket you recorded — sold before these baskets existed</td></tr>`:''}
       ${TBSUM.prebasket?`<tr><td class="sym">Before the basket</td>
-        <td class="r mono ${cls(TBSUM.prebasket)}">${sgn(TBSUM.prebasket)}${M(Math.abs(TBSUM.prebasket))}</td>
+        <td class="r mono num ${cls(TBSUM.prebasket)}">${sgn(TBSUM.prebasket)}${M(Math.abs(TBSUM.prebasket))}</td>
         <td>your own trading in these symbols <b>before</b> the basket that now holds them was
         created — the same stock, but not the basket's result</td></tr>`:''}
       ${TBSUM.ambiguous?`<tr><td class="sym">Unattributable</td>
-        <td class="r mono ${cls(TBSUM.ambiguous)}">${sgn(TBSUM.ambiguous)}${M(Math.abs(TBSUM.ambiguous))}</td>
+        <td class="r mono num ${cls(TBSUM.ambiguous)}">${sgn(TBSUM.ambiguous)}${M(Math.abs(TBSUM.ambiguous))}</td>
         <td>the symbol was held through two or more baskets, so nothing can say which one sold</td></tr>`:''}
-      ${TB_UNDATEABLE.length?`<tr><td class="sym">Not date-gated</td><td class="r mono">—</td>
-        <td><b>${TB_UNDATEABLE.map(esc).join(', ')}</b> record no start date (<span class="mono">executed</span>
-        is prose, not a date), so their sales cannot be split into before/after and may still include
-        pre-basket trading</td></tr>`:''}
+      ${TB_UNDATEABLE.length?`<tr><td class="sym">No start date</td><td class="r mono">—</td>
+        <td><b>${TB_UNDATEABLE.map(esc).join(', ')}</b> record no start date, so their sales cannot be split
+        into before and after the basket, and may still include pre-basket trading</td></tr>`:''}
       ${TB.uncosted.length?`<tr><td class="sym">Not costable</td><td class="r mono">—</td>
         <td><b>${M(TB.uncosted.reduce((a,x)=>a+x.proceeds,0))}</b> of proceeds across
-        ${TB.uncosted.length} sales whose purchase is in no export — excluded entirely rather than
-        counted as profit</td></tr>`:''}
+        ${TB.uncosted.length} sales whose purchase is in no export — excluded rather than counted as
+        profit</td></tr>`:''}
       </tbody></table>
-      All figures <b>gross</b>: brokerage, STT, stamp duty and GST are in no tradebook. Console's P&amp;L
-      report gives the net number; this gives the basket split, which that report cannot.
     </div>`:''}
-    ${gRealised&&gUn!=null?`<div class="sells" style="margin-top:14px">
-      <b>Total return so far, these baskets only:</b> <span class="mono">${sgn(gUn)}${M(Math.abs(gUn))}</span> unrealised
-      ${sgn(gRealised)} <span class="mono">${M(Math.abs(gRealised))}</span> realised =
-      <b class="mono ${cls(gUn+gRealised)}">${sgn(gUn+gRealised)}${M(Math.abs(gUn+gRealised))}</b>.
-      ${TB&&Math.abs(TBSUM.all-TBSUM.baskets)>1?`A further <b class="mono">${sgn(TBSUM.all-TBSUM.baskets)}${
-        M(Math.abs(TBSUM.all-TBSUM.baskets))}</b> of realised P&amp;L is in the table above and is
-      deliberately <b>not</b> added here: it is trading outside any basket's holding - positions no
-      basket ever held, sales made <b>before</b> the basket owning that stock existed, and any sale two
-      baskets could both claim. Folding it in would answer a different question than this line asks.`:''}
-      Unrealised uses Kite's <b>average</b> cost; realised uses <b>FIFO</b>, as Console and your tax
-      return do. The same split exists in Kite itself, and it can move this total by a few hundred
-      rupees against a single-convention figure.
-      Still missing two things, both structurally: <b>dividends</b>, which no Kite endpoint exposes,
-      and <b>charges</b>, which are not in the orders or holdings APIs either. So this is an
-      under-count of the good and an over-count of the bad.</div>`:''}${gAdjNote}
-    <h2>By basket
-      <button class="sm" style="margin:0" onclick="allBaskets(true)">Expand all</button>
-      <button class="sm" style="margin:0" onclick="allBaskets(false)">Collapse all</button>
-      <button class="sm" id="privbtn" style="margin:0" onclick="togglePrivate()"
-        title="Hide every rupee amount and share count, keep the percentages. For screenshots."
-        >${PRIVATE?'Show amounts':'Hide amounts'}</button>
-    </h2>`+html;
-
+    <div class="sells" style="margin-top:14px">Unrealised uses the broker's <b>average</b> cost of what you
+      hold, and realised uses <b>FIFO</b>, as Console and your tax return do; a stock bought and sold on the
+      same day is netted as intraday. Charges and dividends are in no Kite endpoint, so this under-counts
+      the good and over-counts the bad.</div>
+    </details>`;
   // names are editable and persist per tag
   document.querySelectorAll('.bname').forEach(el=>{
     el.onchange=()=>{ setName(el.dataset.tag, el.value);
@@ -817,9 +840,40 @@ the wrong one is how a rebalance silently breaks the other basket.">${esc(
       if(h) h.textContent=el.value.trim()||el.dataset.tag; };
   });
   document.querySelectorAll('details.bk').forEach(d=>{
-    d.ontoggle=()=>setOpen(d.dataset.tag, d.open);
+    d.ontoggle=()=>{ if(!FIND) setOpen(d.dataset.tag, d.open); };   // a search opens without remembering
   });
+  const fi=$('find');
+  // Scroll to the first hit once typing pauses (Enter jumps at once), so a match below the fold is seen.
+  if(fi){ fi.value=FIND; fi.oninput=()=>{ FIND=fi.value.trim().toUpperCase(); applyFind();
+      clearTimeout(FINDT); FINDT=setTimeout(()=>findJump('nearest'),500); };
+    fi.onkeydown=e=>{ if(e.key==='Escape'){ fi.value=''; FIND=''; applyFind(); }
+      else if(e.key==='Enter'){ clearTimeout(FINDT); findJump('center'); } }; }
+  applyFind();
+  $('imp').classList.add('loaded');
 }
+
+// "Which basket owns this stock" used to mean opening every basket. Typing part of a symbol opens the
+// baskets that hold it, dims the rest and marks the matching rows; clearing restores what you had open.
+// The result line says what matched and where, or that nothing did - a dimmed page with no hit read as broken.
+let FIND='', FINDT=0;
+function applyFind(){
+  const q=FIND, where=[]; let rows=0;
+  document.querySelectorAll('details.bk').forEach(d=>{
+    const hit=!!q&&(d.dataset.syms||'').split(' ').some(x=>x.includes(q));
+    d.classList.toggle('dim', !!q&&!hit);
+    d.open = q ? hit : !!opens()[d.dataset.tag];
+    d.querySelectorAll('tr[data-sym]').forEach(tr=>{ const h=!!q&&tr.dataset.sym.includes(q);
+      tr.classList.toggle('hit', h); if(h) rows++; });
+    if(hit) where.push(d.querySelector('.btitle').textContent);
+  });
+  const r=$('findres'); if(!r) return;
+  r.classList.toggle('none', !!q&&!rows);
+  r.textContent = !q ? '' : rows
+    ? `${rows} holding${rows>1?'s':''} matching “${q}”, in ${where.join(', ')}.`
+    : `No holding matches “${q}”. Search by trading symbol, as shown in each basket's Stock column.`;
+}
+const findJump=block=>{ const t=document.querySelector('tr.hit');
+  if(t) t.scrollIntoView({block, behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'}); };
 
 async function load(text,opts){
   let j; try{ j=JSON.parse(text); }catch(e){ say('That is not valid JSON — '+esc(e.message)); return; }
@@ -839,10 +893,12 @@ async function load(text,opts){
   if(!opts||!opts.restored){ saveData(text); stamp(new Date().toISOString()); }
   else stamp(opts.at);
   const syms=[...new Set(Object.values(GROUPS).flatMap(G=>Object.keys(G.pos)))];
-  say(`Grouped into ${Object.keys(GROUPS).length} baskets by tag · fetching ${syms.length} prices…`);
+  say(`Grouped into ${Object.keys(GROUPS).length} baskets by tag · fetching ${syms.length} prices…`,'ok');
   try{
     const r=await prices(syms); PX=r.prices||{};
-    say(`${Object.keys(PX).length} of ${syms.length} priced${r.missing&&r.missing.length?' · no price for '+r.missing.join(', '):''}. Open a basket to see its holdings or rename it.`);
+    const t=new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+    say(`${Object.keys(PX).length} of ${syms.length} priced at ${t}${r.missing&&r.missing.length
+      ?' · no price for '+r.missing.map(esc).join(', '):''}.`, r.missing&&r.missing.length?'warn':'ok');
   }catch(e){ PX={}; say('No live prices — '+esc(e.message)+'. Showing cost basis only.'); }
   render();
 }
@@ -988,16 +1044,37 @@ function tbRealised(){
     else { console.error('corporate action type not implemented here:', a.type, a); CA_UNKNOWN.push(a); }
     done.add(i);
   });
-  for(const tr of trades){
-    applyCA(tr.d);
-    if(tr.t==='buy'){ (lots[tr.s]=lots[tr.s]||[]).push([tr.q,tr.p]); continue; }
-    let left=tr.q, L=lots[tr.s]||[];
-    while(left>0&&L.length){
+  const sell=(s,d,q,px)=>{
+    let left=q; const L=lots[s]||[];
+    while(left>1e-9&&L.length){
       const lot=L[0], take=Math.min(left,lot[0]);
-      matched.push({s:tr.s,d:tr.d,q:take,pnl:take*(tr.p-lot[1]),proceeds:take*tr.p,cost:take*lot[1]});
-      lot[0]-=take; left-=take; if(lot[0]<=0) L.shift();
+      matched.push({s,d,q:take,pnl:take*(px-lot[1]),proceeds:take*px,cost:take*lot[1]});
+      lot[0]-=take; left-=take; if(lot[0]<=1e-9) L.shift();
     }
-    if(left>1e-9) uncosted.push({s:tr.s,d:tr.d,q:left,proceeds:left*tr.p});
+    if(left>1e-9) uncosted.push({s,d,q:left,proceeds:left*px});
+  };
+  // SAME-DAY NETTING. The broker settles a symbol bought AND sold on one day as INTRADAY on the day's
+  // totals: min(bought, sold) matches at the day's average buy vs average sell, and only the remainder
+  // touches holdings (a net sell leaves the oldest lots, a net buy is one lot at the day's average buy).
+  // Plain FIFO sold every share out of old lots instead, so a rebalance day that trims and tops up the
+  // same stocks drifted from the broker's average cost by thousands and booked intraday as delivery.
+  // Must stay identical to tradebook.py's fifo() and dashboard.html's fifoJS.
+  for(let i=0;i<trades.length;){
+    const d=trades[i].d; let j=i; while(j<trades.length&&trades[j].d===d) j++;
+    const day=trades.slice(i,j); i=j;
+    applyCA(d);
+    const tot={};
+    day.forEach(t=>{ const a=(tot[t.s]=tot[t.s]||[0,0,0,0]), k=t.t==='buy'?0:2; a[k]+=t.q; a[k+1]+=t.q*t.p; });
+    day.forEach(t=>{
+      const a=tot[t.s]; if(a[0]&&a[2]) return;              // both sides today: netted below
+      if(t.t==='buy') (lots[t.s]=lots[t.s]||[]).push([t.q,t.p]); else sell(t.s,d,t.q,t.p);
+    });
+    Object.entries(tot).forEach(([s,[bq,bv,sq,sv]])=>{
+      if(!(bq&&sq)) return;
+      const bp=bv/bq, sp=sv/sq, m=Math.min(bq,sq);
+      matched.push({s,d,q:m,pnl:m*(sp-bp),proceeds:m*sp,cost:m*bp,intraday:true});
+      if(sq>bq) sell(s,d,sq-bq,sp); else if(bq>sq) (lots[s]=lots[s]||[]).push([bq-sq,bp]);
+    });
   }
   return {trades,matched,uncosted};
 }

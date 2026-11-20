@@ -2,124 +2,31 @@
 <title>sharecase — shareable stock baskets, sized to your capital</title>
 <meta name="description" content="Someone shares a stock basket; you get your own buy list. Weights travel, share counts don't. Runs in your browser — no account, nothing uploaded; only stock symbols go to this app's own /api/price.">
 <style>
-/* ---------- type: self-hosted, latin subset. Direction B ---------- */
-@font-face{font-family:'IBM Plex Sans';src:url(fonts/plex-sans-400.woff2)format('woff2');
-  font-weight:400;font-display:swap}
-@font-face{font-family:'IBM Plex Sans';src:url(fonts/plex-sans-600.woff2)format('woff2');
-  font-weight:600;font-display:swap}
-@font-face{font-family:'IBM Plex Mono';src:url(fonts/plex-mono-400.woff2)format('woff2');
-  font-weight:400;font-display:swap}
-@font-face{font-family:'IBM Plex Mono';src:url(fonts/plex-mono-500.woff2)format('woff2');
-  font-weight:500;font-display:swap}
-@font-face{font-family:'Barlow Semi Condensed';src:url(fonts/barlow-sc-600.woff2)format('woff2');
-  font-weight:600;font-display:swap}
+/* ---------- type: Gloock (display, one weight) + Figtree (everything else), self-hosted, OFL ---------- */
+@font-face{font-family:'Gloock';src:url(fonts/gloock-latin-ext.woff2)format('woff2');font-weight:400;font-display:swap;unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF}
+@font-face{font-family:'Gloock';src:url(fonts/gloock-latin.woff2)format('woff2');font-weight:400;font-display:swap;unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
+@font-face{font-family:'Figtree';src:url(fonts/figtree-latin-ext.woff2)format('woff2');font-weight:400 700;font-display:swap;unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF}
+@font-face{font-family:'Figtree';src:url(fonts/figtree-latin.woff2)format('woff2');font-weight:400 700;font-display:swap;unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
 
-:root{--bg:#E9EAE3;--bg2:#F3F4EE;--panel:#FCFCF8;--panel2:#F3F4EE;--hair:#BCC3B8;--hair2:#A6AFA2;
---tx:#18211D;--tx2:#46534C;--tx3:#5C6A61;--em:#155A78;--gain:#0B5B3A;--action:#155A78;--rule:#BCC3B8;--rule-strong:#A6AFA2;--display:'Barlow Semi Condensed';--ui:'IBM Plex Sans';--num:'IBM Plex Mono';--ox:#A52A22;--gold:#7A4E00;--blue:#2b5fc4}
+/* ---------- CRED Money light world + NeoPOP controls (DESIGN.md); tokens, nav and .np match dashboard.html ---------- */
+:root{--bg:#efefee;--bg2:#f5f5f4;--panel:#ffffff;--panel2:#f5f5f4;--hair:#e7e7e7;--hair2:#cfcfcf;--tx:#0f0f0f;--tx2:#555555;--tx3:#6b6b6b;--em:#0f0f0f;--gain:#077f47;--ox:#c2352d;--gold:#8a5f0f;--goldbg:#fcf8ee;--goldline:#e8d6a4;--display:'Gloock',Georgia,serif;--ui:'Figtree';--code:ui-monospace,SFMono-Regular,Menlo,monospace;--np:#0f0f0f;--onnp:#ffffff;--npr:#6f6f6f;--npb:#3b3b3b;--ease:cubic-bezier(.2,.7,.3,1);--t:170ms;--e:cubic-bezier(.22,.61,.36,1);--radius:0px;--radius-full:999px;--ring:var(--tx)}
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:var(--bg);color:var(--tx);font-family:var(--ui),'IBM Plex Sans',system-ui,sans-serif;font-size:15px;
-line-height:1.55;padding:0 0 70px;
-background-image:linear-gradient(180deg,rgba(0,0,0,.05),transparent 240px)}
-.wrap{max-width:880px;margin:0 auto;padding:0 20px}
-.mono{font-family:var(--num),ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums}
-
-/* ---------- hero ---------- */
-h1{font-family:var(--display),'Barlow Semi Condensed',sans-serif;font-size:34px;font-weight:600;letter-spacing:-.025em;line-height:1.15;max-width:15em}
-.lede{font-size:16.5px;color:var(--tx2);margin-top:18px;max-width:34em}
-.lede b{color:var(--tx);font-weight:600}
-.pill{display:inline-block;font-size:10px;letter-spacing:.1em;text-transform:uppercase;
-padding:4px 10px;border:1px solid var(--hair2);color:var(--tx2);margin-bottom:14px}
-.pill.a{border-color:var(--em);color:var(--em);font-weight:600}
-.actions{display:flex;gap:11px;flex-wrap:wrap;margin-top:24px;align-items:center}
-.cta{background:var(--em);color:#fff;text-decoration:none}
-.cta:hover{filter:brightness(1.08)}
-.ghost{background:var(--panel);color:var(--tx);text-decoration:none;border:1px solid var(--hair2);
-border-radius:var(--radius);min-height:44px;padding:12px 22px;font-size:15px;font-weight:500;
-display:inline-flex;align-items:center}
-.ghost:hover{border-color:var(--em);color:var(--em)}
-.smallprint{font-size:12.5px;color:var(--tx3);margin-top:16px}
-
-/* ---------- section headings ---------- */
-h2{font-size:11.5px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:var(--tx2);
-display:flex;align-items:center;gap:10px;margin:46px 0 15px}
-h2::after{content:'';flex:1;height:1px;background:var(--hair)}
-
-/* ---------- cards ---------- */
-.panel{background:var(--panel);border:1px solid var(--hair);padding:21px 24px;
-box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 26px -12px rgba(0,0,0,.10)}
-.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:15px}
-@media(max-width:760px){.steps{grid-template-columns:1fr}}
-.step{background:var(--panel);border:1px solid var(--hair);border-radius:var(--radius-lg);
-padding:20px 21px;box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 26px -12px rgba(0,0,0,.10)}
-.step .ic{width:26px;height:26px;stroke:var(--em);fill:none;stroke-width:1.6;
-stroke-linecap:round;stroke-linejoin:round}
-.step b{display:block;font-size:15.5px;margin:12px 0 5px}
-.step p{font-size:13.5px;color:var(--tx2)}
-.n{font-size:10.5px;letter-spacing:.1em;color:var(--tx3);font-weight:600}
-
-/* ---------- the comparison ---------- */
-.cmp{display:grid;grid-template-columns:1fr 1fr;gap:0}
-@media(max-width:700px){.cmp{grid-template-columns:1fr}
-  .cmp>div+div{border-left:none!important;border-top:1px solid var(--hair);padding-top:18px;margin-top:18px}}
-.cmp>div+div{border-left:1px solid var(--hair);padding-left:26px}
-.cmp>div:first-child{padding-right:26px}
-.cap{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--tx3);font-weight:600}
-.amt{font-size:23px;font-weight:700;letter-spacing:-.02em;margin:3px 0 14px}
-table{width:100%;border-collapse:collapse}
-thead th{font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;text-align:left;
-padding-bottom:7px;border-bottom:1px solid var(--hair2)}
-thead th.r,td.r{text-align:right}
-td{padding:9px 0;border-bottom:1px solid var(--hair);font-size:13.5px}
-tbody tr:last-child td{border-bottom:none}
-.sym{font-weight:600}
-.pct{color:var(--em);font-weight:600}
-.tgt{color:var(--tx3);font-size:12px}
-.punch{font-size:14.5px;color:var(--tx2);margin-top:20px;padding-top:18px;
-border-top:1px solid var(--hair)}
-.punch b{color:var(--tx)}
-
-/* ---------- honest limits ---------- */
-.lim{background:var(--panel);border:1px solid var(--hair);border-radius:var(--radius-lg);
-box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 26px -12px rgba(0,0,0,.10)}
-.lrow{display:flex;gap:15px;align-items:flex-start;padding:17px 23px;border-bottom:1px solid var(--hair)}
-.lrow:last-child{border-bottom:none}
-.lrow svg{width:20px;height:20px;flex:none;margin-top:2px;stroke:var(--tx3);fill:none;
-stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
-.lrow b{display:block;font-size:14.5px;margin-bottom:3px}
-.lrow p{font-size:13.5px;color:var(--tx2)}
-a.lnk{text-decoration:none;color:inherit}
-a.lnk b{color:var(--em)}
-a.lnk:hover{background:var(--panel2)}
-a.lnk:hover svg{stroke:var(--em)}
-a{color:var(--em)}
-code{background:var(--panel2);border:1px solid var(--hair);border-radius:var(--radius-sm);
-padding:1px 6px;font-family:var(--num),ui-monospace,monospace;font-size:12.5px}
-.foot{border-top:1px solid var(--hair);margin-top:48px;padding-top:22px;
-display:flex;gap:16px;flex-wrap:wrap;justify-content:space-between;align-items:baseline;
-font-size:11.5px;color:var(--tx3);line-height:1.8}
-.foot a{color:var(--tx2)}
-.foot .mid{display:flex;gap:14px}
-
-/* ---------- motion system: 160-220ms, ease-out entering, no layout shift ---------- */
-:root{--t:170ms;--e:cubic-bezier(.22,.61,.36,1)}
-a,button,.tab,.fbtn,.atile,.card,.hstep,tbody tr,input,select,textarea,.drop,.setup,.step,.ghost{
+html{background:var(--bg);scrollbar-color:var(--hair2) transparent;accent-color:var(--tx);caret-color:var(--tx)}
+::selection{background:var(--tx);color:#fff}
+body{background:var(--bg);color:var(--tx);padding:0 16px 56px;font:400 .9375rem/1.5 var(--ui),system-ui,sans-serif;
+  font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1280px;margin:0 auto;background:var(--panel);border-radius:18px 18px 0 0;padding:28px 36px 48px;min-height:100vh}
+.doc{max-width:46rem;margin:0 auto}
+a{color:var(--tx);text-underline-offset:4px}
+b,strong{font-weight:700}
+.mono{font-family:var(--ui);font-variant-numeric:tabular-nums}
+a,button,.tab,.fbtn,.atile,.card,.hstep,tbody tr,input,select,textarea,.drop,.setup{
   transition:background-color var(--t) var(--e),border-color var(--t) var(--e),
   color var(--t) var(--e),box-shadow var(--t) var(--e),transform var(--t) var(--e)}
-button:hover,.setup:hover,.cta:hover,.ghost:hover{transform:translateY(-1px)}  /* lift, never scale */
-button:active,.setup:active,.cta:active,.ghost:active{transform:translateY(0)}
-a.card:hover,.step:hover{transform:translateY(-2px)}
-.step:hover{border-color:var(--hair2)}
-tbody tr:hover{background:var(--panel2)}
-:focus-visible{outline:2px solid var(--em);outline-offset:2px;border-radius:var(--radius)}
-button,.tab,.fbtn,a.card,.drop,summary{cursor:pointer}
-/* one entrance animation per action, not per element */
-@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-.enter{animation:rise 220ms var(--e) both}
+:focus-visible{outline:2px solid var(--tx);outline-offset:2px}
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;
-    transition-duration:.01ms!important;scroll-behavior:auto!important}
-  button:hover,.setup:hover,a.card:hover,.step:hover,.cta:hover,.ghost:hover{transform:none}
-}
+    transition-duration:.01ms!important;scroll-behavior:auto!important}}
 /* ---------- nav: fixed inner width so it never reshapes between pages ---------- */
 .ftbar{width:100%;border-bottom:1px solid var(--hair);background:var(--panel);
   box-shadow:0 1px 2px rgba(0,0,0,.03);margin-bottom:26px}
@@ -131,55 +38,99 @@ button,.tab,.fbtn,a.card,.drop,summary{cursor:pointer}
   min-height:34px;line-height:1}   /* line-height:1 — else each page's body lh resizes the bar */
 .ftnav a:hover{background:var(--panel2);color:var(--tx);transform:none}
 .ftnav a.on{background:var(--em);color:#fff;font-weight:600}
-.ftnav a.brand{font-family:var(--display),'Barlow Semi Condensed',sans-serif;font-weight:600;font-size:13.5px;color:var(--tx);margin-right:8px;padding-left:0}
+.ftnav a.brand{font-family:var(--display);font-weight:400;font-size:13.5px;color:var(--tx);margin-right:8px;padding-left:0}
 .ftnav a.brand:hover{background:transparent;color:var(--em)}
 .ftnav svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.9;flex:none}
-
-/* ---------- shadcn-style token layer (mapped to the warm cream palette) ---------- */
-:root{
-  --background:var(--bg); --foreground:var(--tx);
-  --card:var(--panel); --card-foreground:var(--tx);
-  --muted:var(--panel2); --muted-foreground:var(--tx2);
-  --border:var(--hair); --input:var(--hair2); --ring:var(--em);
-  --primary:var(--em); --primary-foreground:#fff;
-  --destructive:var(--ox); --destructive-foreground:#fff;
-  --radius:10px;                       /* base; every other step derives from it */
-  --radius-xs:3px; --radius-sm:6px; --radius-md:12px; --radius-lg:16px; --radius-full:999px;
-  --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-6:24px;--space-8:32px;
-}
-/* buttons — shadcn size variants: sm h-8, default h-9, lg h-11 */
-button,.setup{border-radius:var(--radius);font-weight:500;letter-spacing:0;
-  min-height:36px;padding:8px 16px;font-size:13.5px;line-height:1.2}
-button.pri{font-weight:600}
-button.sm{min-height:32px;padding:6px 12px;font-size:12.5px}
-.cta{border-radius:var(--radius);min-height:44px;padding:12px 26px;   /* lg: the page's one primary action */
-  font-size:15px;font-weight:600;display:inline-flex;align-items:center;gap:8px}
-button:disabled{opacity:.5;pointer-events:none}
-/* shadcn's ring, not a browser outline */
-:focus-visible{outline:none;box-shadow:0 0 0 2px var(--background),0 0 0 4px var(--ring)}
-/* inputs — consistent height, ring on focus, muted placeholder */
-input,select,textarea{border-radius:var(--radius);border:1px solid var(--input);
-  background:var(--card);font-size:13.5px}
-input:not([type=radio]):not([type=checkbox]),select{min-height:36px;padding:8px 12px}
-input::placeholder,textarea::placeholder{color:var(--tx3)}
-input:focus,select:focus,textarea:focus{outline:none;border-color:var(--ring);
-  box-shadow:0 0 0 3px rgba(21,90,120,.16)}
-/* cards — shadcn border + subtle shadow, one radius step up */
-.panel,.kpi,.card,.q,.hstep,.cf-card{border-radius:var(--radius-lg);border:1px solid var(--border)}
-/* tables — shadcn data-table rhythm: taller rows, muted uppercase head, no vertical rules */
-thead th{font-weight:500;color:var(--muted-foreground);height:auto;vertical-align:middle}
-tbody td{vertical-align:middle}
-/* badges */
-.tag,.pill,.srcbadge{border-radius:var(--radius-full);font-weight:500;border:1px solid var(--border);
-  padding:3px 10px;font-size:11px;line-height:1.5}
-/* alert boxes — shadcn destructive/default variants */
-.warn,.ok,.safe,.sendbox{border-radius:var(--radius);border-width:1px;font-size:13px;
-  padding:12px 15px}
-/* muted helper text */
-.note{color:var(--muted-foreground)}
-/* segmented control (tabs, toggles) */
-.tab,.fbtn,.atog button{border-radius:var(--radius);font-weight:500}
-.tab.on,.fbtn.on{box-shadow:0 1px 2px rgba(0,0,0,.08)}
+/* nav band: same inner width and height on every page; ink pill for the current page */
+.ftbar{background:transparent;border:none;box-shadow:none;margin:0}
+.ftnav{padding:12px 20px}
+.ftnav a{font:600 .8125rem/1 var(--ui);color:var(--tx2);border-radius:999px;min-height:40px;padding:0 15px}
+.ftnav a:hover{background:var(--panel);color:var(--tx)}
+.ftnav a.on{background:var(--tx);color:#fff;font-weight:700}
+.ftnav a.brand{font:400 1.25rem/1 var(--display);letter-spacing:-.01em;color:var(--tx)}
+.ftnav a.brand:hover{background:transparent;color:var(--tx)}
+/* NeoPOP plunk button (CRED's open-source NeoPOP, Apache-2.0, redrawn in CSS): solid right and bottom
+   edges skewed 45 degrees; pressing moves the face into the edge and the edge disappears */
+.np{--d:4px;position:relative;display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:44px;
+  padding:0 22px;margin:0 var(--d) var(--d) 0;background:var(--np);color:var(--onnp);border:none;border-radius:0;cursor:pointer;
+  font:600 .875rem/1 var(--ui);letter-spacing:0;transition:transform .12s var(--ease)}
+.np::before,.np::after{content:'';position:absolute;transition:opacity .12s var(--ease)}
+.np::before{top:0;right:calc(var(--d) * -1);width:var(--d);height:100%;background:var(--npr);transform-origin:left top;transform:skewY(45deg)}
+.np::after{left:0;bottom:calc(var(--d) * -1);width:100%;height:var(--d);background:var(--npb);transform-origin:left top;transform:skewX(45deg)}
+.np:active{transform:translate(var(--d),var(--d))}
+.np:active::before,.np:active::after{opacity:0}
+.np.ghost{background:var(--panel);color:var(--tx);box-shadow:inset 0 0 0 2px var(--tx);--npr:var(--tx);--npb:var(--tx)}
+.np:disabled{background:var(--hair2);color:var(--tx3);cursor:not-allowed;transform:none}
+.np:disabled::before,.np:disabled::after{display:none}
+a.np{text-decoration:none}
+/* type: Gloock for the title and section heads (one weight, never synthesised), Figtree for the rest */
+h1{font:400 1.75rem/1.12 var(--display);letter-spacing:-.015em;text-wrap:balance}
+.sub{font:400 .9375rem/1.5 var(--ui);color:var(--tx3);margin-top:6px}
+h2{font:400 1.5rem/1.2 var(--display);letter-spacing:-.01em;margin:48px 0 16px;text-wrap:balance}
+h1,h2,.sn,.n{font-synthesis:none}
+p,ul,ol{max-width:68ch}
+.lede{font-size:1.0625rem;line-height:1.55;color:var(--tx2);margin-top:16px}
+.lede b{color:var(--tx)}
+code{font:500 .8125rem/1.4 var(--code);background:var(--panel2);padding:2px 6px}
+.note{font-size:.875rem;color:var(--tx3);margin-top:12px}
+/* notices: gold box, 1px edge all round */
+.warn{background:var(--goldbg);border:1px solid var(--goldline);color:var(--tx);padding:16px 20px;margin-top:24px;max-width:68ch}
+.foot{margin-top:56px;padding-top:12px;border-top:1px dashed var(--hair2);font:400 .8125rem/1.7 var(--ui);color:var(--tx3)}
+.foot a{color:var(--tx2);display:inline-flex;align-items:center;min-height:44px}
+@media(max-width:620px){body{padding:0}.wrap{padding:22px 16px 40px;border-radius:18px 18px 0 0}}
+/* ---------- landing: one confident headline, the real comparison, statement lines ---------- */
+.doc{max-width:1080px}
+.hero{padding:40px 0 8px}
+.hero h1{font-size:clamp(2.5rem,1.4rem + 3.4vw,4.25rem);line-height:1.02;letter-spacing:-.015em;max-width:13.5em}
+.hero .lede{font-size:1.1875rem;max-width:56ch;margin-top:24px}
+.actions{display:flex;gap:16px 20px;flex-wrap:wrap;align-items:center;margin-top:32px}
+.hero .np{min-height:52px;padding:0 26px;font-size:.9375rem}
+.smallprint{font-size:.875rem;color:var(--tx3);margin-top:20px}
+h2{margin-top:72px}
+/* how it works: three numbered statement lines */
+.steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1.5px solid var(--tx);border-bottom:1px dashed var(--hair2)}
+.step{display:grid;grid-template-columns:2rem minmax(0,1fr);column-gap:12px;align-content:start;padding:20px 24px 24px 0;min-width:0}
+.step+.step{padding-left:24px;border-left:1px dashed var(--hair2)}
+.step .n{grid-row:1/3;font:400 1.5rem/1 var(--display)}
+.step>b,.step>p{grid-column:2}
+.step>b{font-size:1.0625rem;line-height:1.3}
+.step>p{color:var(--tx2);margin-top:8px}
+/* the comparison: same file, two amounts */
+.cmp{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);border-top:1.5px solid var(--tx)}
+.cmp>div{padding:20px 28px 0 0;min-width:0}
+.cmp>div+div{padding:20px 0 0 28px;border-left:1px dashed var(--hair2)}
+.cap{font:600 .75rem/1.3 var(--ui);letter-spacing:.16em;text-transform:uppercase;color:var(--tx3)}
+.amt{font:700 1.5rem/1.15 var(--ui);letter-spacing:-.01em;margin:8px 0 16px}
+table{width:100%;border-collapse:collapse}
+th{font:600 .75rem/1.3 var(--ui);letter-spacing:.12em;text-transform:uppercase;color:var(--tx3);text-align:left;
+  height:40px;vertical-align:bottom;padding-bottom:10px;border-bottom:1px solid var(--hair2)}
+td{height:44px;border-bottom:1px dashed var(--hair2)}
+th.r,td.r{text-align:right}
+.sym,.pct{font-weight:700}
+.tgt{font-weight:700;white-space:nowrap}
+.punch{font-size:1.0625rem;color:var(--tx2);margin-top:28px}
+.punch b{color:var(--tx)}
+.punch+.punch{font-size:.9375rem;margin-top:12px}
+/* limits and links: rows on a rule */
+.lim,.also{border-top:1.5px solid var(--tx)}
+.lrow{display:grid;grid-template-columns:minmax(0,17rem) minmax(0,1fr);gap:6px 32px;padding:18px 0;border-bottom:1px dashed var(--hair2)}
+.lrow b{font-size:1rem}
+.lrow p{color:var(--tx2)}
+a.lnk{position:relative;text-decoration:none;color:inherit;padding-right:48px}
+a.lnk::after{content:'';position:absolute;right:16px;top:50%;width:9px;height:9px;margin-top:-5px;
+  border-top:2px solid var(--tx);border-right:2px solid var(--tx);transform:rotate(45deg)}
+a.lnk:hover{background:var(--panel2)}
+a.lnk:hover b{text-decoration:underline}
+.foot{display:flex;gap:4px 24px;flex-wrap:wrap;justify-content:space-between;align-items:center;margin-top:72px}
+.foot .mid{display:flex;gap:20px}
+@media(max-width:760px){
+  .steps,.cmp{grid-template-columns:1fr}
+  .step+.step{padding-left:0;border-left:none;border-top:1px dashed var(--hair2)}
+  .cmp>div{padding-right:0}
+  .cmp>div+div{padding:20px 0 0;border-left:none;border-top:1px dashed var(--hair2);margin-top:24px}
+  .lrow{grid-template-columns:1fr}
+  h2{margin-top:56px}}
+@media(max-width:620px){.hero{padding-top:16px}.hero .lede{font-size:1.0625rem}}
 </style></head><body>
 <div class="ftbar"><nav class="ftnav" aria-label="Main">
 <a href="index.html" class="brand">sharecase</a>
@@ -191,115 +142,95 @@ tbody td{vertical-align:middle}
 <script>(function(){var f=location.pathname.split('/').pop()||'index.html';
 document.querySelectorAll('.ftnav a[data-p]').forEach(function(a){
   if(a.getAttribute('data-p')===f){a.classList.add('on');a.setAttribute('aria-current','page');}});})();</script>
-<div class="wrap">
+<div class="wrap"><main class="doc">
 
-<div class="pill a">Runs in your browser</div>
+<header class="hero">
 <h1>Someone shares a basket. You get your own buy list.</h1>
-<p class="lede">A basket is a list of stocks and <b>target percentages</b> — not share counts.
+<p class="lede">A basket is a list of stocks and <b>target percentages</b>, not share counts.
 Type what you want to invest and sharecase turns those percentages into exact whole-share
 orders at <b>your</b> capital, not theirs.</p>
 <div class="actions">
-  <a class="cta" href="basket.html">Open the workbench</a>
-  <a class="ghost" href="friends.html">New to this? Read the 2-minute guide</a>
+  <a class="np" href="basket.html">Open the workbench</a>
+  <a class="np ghost" href="friends.html">New to this? Read the 2-minute guide</a>
 </div>
-<p class="smallprint">No account. Nothing uploaded — only stock symbols go to this app's own
-<span class="mono">/api/price</span>. Not investment advice.</p>
+<p class="smallprint">Runs in your browser. No account. Nothing uploaded: only stock symbols go to this
+app's own <span class="mono">/api/price</span>. Not investment advice.</p>
+</header>
 
 <h2>How it works</h2>
 <div class="steps">
   <div class="step">
-    <svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
-    <span class="n">01</span>
+    <span class="n">1</span>
     <b>Load the sheet</b>
     <p>Drag the <code>.json</code> a friend sent you onto the page, or paste the text.
        You immediately see how many stocks it holds and the minimum it needs.</p>
   </div>
   <div class="step">
-    <svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h5M7 17h3"/></svg>
-    <span class="n">02</span>
+    <span class="n">2</span>
     <b>Type your amount</b>
     <p>Get share counts, total cost, and how far each holding lands from its target weight
        once rounded to whole shares.</p>
   </div>
   <div class="step">
-    <svg class="ic" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/><circle cx="4" cy="12" r="1.4"/></svg>
-    <span class="n">03</span>
+    <span class="n">3</span>
     <b>Place the orders</b>
     <p>Copy them into your broker by hand, or hand the whole basket to Zerodha Kite
-       pre-filled — you review and confirm every order there.</p>
+       pre-filled. You review and confirm every order there.</p>
   </div>
 </div>
 
 <h2>The idea</h2>
-<div class="panel">
-  <div class="cmp">
-    <div>
-      <div class="cap">You invest</div><div class="amt mono">₹4,00,000</div>
-      <table><thead><tr><th>Stock</th><th class="r">Shares</th><th class="r">Weight</th></tr></thead>
-      <tbody>
-        <tr><td class="sym">TCS</td><td class="r mono">31</td><td class="r"><span class="pct">24.7%</span></td></tr>
-        <tr><td class="sym">RELIANCE</td><td class="r mono">92</td><td class="r"><span class="pct">30.2%</span></td></tr>
-        <tr><td class="sym">HDFCBANK</td><td class="r mono">103</td><td class="r"><span class="pct">45.1%</span></td></tr>
-      </tbody></table>
-    </div>
-    <div>
-      <div class="cap">Your friend invests</div><div class="amt mono">₹80,000</div>
-      <table><thead><tr><th>Stock</th><th class="r">Shares</th><th class="r">Weight</th></tr></thead>
-      <tbody>
-        <tr><td class="sym">TCS</td><td class="r mono">6</td><td class="r"><span class="pct">24.1%</span></td></tr>
-        <tr><td class="sym">RELIANCE</td><td class="r mono">18</td><td class="r"><span class="pct">29.7%</span></td></tr>
-        <tr><td class="sym">HDFCBANK</td><td class="r mono">21</td><td class="r"><span class="pct">46.2%</span></td></tr>
-      </tbody></table>
-    </div>
+<div class="cmp">
+  <div>
+    <div class="cap">You invest</div><div class="amt mono">₹4,00,000</div>
+    <table><thead><tr><th>Stock</th><th class="r">Shares</th><th class="r">Weight</th></tr></thead>
+    <tbody>
+      <tr><td class="sym">TCS</td><td class="r mono">31</td><td class="r"><span class="pct">24.7%</span></td></tr>
+      <tr><td class="sym">RELIANCE</td><td class="r mono">92</td><td class="r"><span class="pct">30.2%</span></td></tr>
+      <tr><td class="sym">HDFCBANK</td><td class="r mono">103</td><td class="r"><span class="pct">45.1%</span></td></tr>
+    </tbody></table>
   </div>
-  <p class="punch">Same file, same targets of <span class="tgt mono">25 / 30 / 45%</span> — and
-    <b>completely different share counts</b>. That is the whole trick: percentages travel between
-    people, share counts don't.</p>
-  <p class="punch" style="border-top:none;padding-top:0;margin-top:9px;font-size:13.5px">
-    Notice the weights aren't identical either. Whole shares don't divide evenly, so the smaller
-    amount drifts further from target — <b>1.2 points</b> at ₹80,000 versus <b>0.3</b> at ₹4,00,000.
-    The page shows you that drift rather than hiding it, and below this basket's minimum of
-    <span class="mono">₹9,290</span> it stops you instead of quietly dropping TCS.
-    <span class="note">(Illustrative prices.)</span></p>
+  <div>
+    <div class="cap">Your friend invests</div><div class="amt mono">₹80,000</div>
+    <table><thead><tr><th>Stock</th><th class="r">Shares</th><th class="r">Weight</th></tr></thead>
+    <tbody>
+      <tr><td class="sym">TCS</td><td class="r mono">6</td><td class="r"><span class="pct">24.1%</span></td></tr>
+      <tr><td class="sym">RELIANCE</td><td class="r mono">18</td><td class="r"><span class="pct">29.7%</span></td></tr>
+      <tr><td class="sym">HDFCBANK</td><td class="r mono">21</td><td class="r"><span class="pct">46.2%</span></td></tr>
+    </tbody></table>
+  </div>
 </div>
+<p class="punch">Same file, same targets of <span class="tgt mono">25 / 30 / 45%</span>, and
+  <b>completely different share counts</b>. That is the whole trick: percentages travel between
+  people, share counts don't.</p>
+<p class="punch">Notice the weights aren't identical either. Whole shares don't divide evenly, so the smaller
+  amount drifts further from target: <b>1.2 points</b> at ₹80,000 versus <b>0.3</b> at ₹4,00,000.
+  The page shows you that drift rather than hiding it, and below this basket's minimum of
+  <span class="mono">₹9,290</span> it stops you instead of quietly dropping TCS.
+  <span class="note">(Illustrative prices.)</span></p>
 
 <h2>What it will not do</h2>
 <div class="lim">
-  <div class="lrow">
-    <svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 4-6"/><path d="M17 4h4v4" opacity=".4"/></svg>
-    <div><b>Send your holdings anywhere</b>
-      <p>Live prices come from this app's own <span class="mono">/api/price</span>, and only stock
-         symbols go to it — never quantities, amounts or files. Or skip it and use the sheet's
-         prices, or type them from your broker app.</p></div>
-  </div>
-  <div class="lrow">
-    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
-    <div><b>Shrink a basket silently</b>
-      <p>Below the minimum, the priciest stock can't get even one share. Rather than drop it and
-         hand you a different portfolio, the page blocks and suggests amounts that work.</p></div>
-  </div>
-  <div class="lrow">
-    <svg viewBox="0 0 24 24"><path d="M12 3 3 7v6c0 4.5 3.8 7.6 9 8.5 5.2-.9 9-4 9-8.5V7l-9-4Z"/><path d="M9 12h6"/></svg>
-    <div><b>Give you advice</b>
-      <p>It does arithmetic. It doesn't know whether a basket is any good, and nothing is placed
-         until you confirm it yourself in your own broker.</p></div>
-  </div>
+  <div class="lrow"><b>Send your holdings anywhere</b>
+    <p>Live prices come from this app's own <span class="mono">/api/price</span>, and only stock
+       symbols go to it, never quantities, amounts or files. Or skip it and use the sheet's
+       prices, or type them from your broker app.</p></div>
+  <div class="lrow"><b>Shrink a basket silently</b>
+    <p>Below the minimum, the priciest stock can't get even one share. Rather than drop it and
+       hand you a different portfolio, the page blocks and suggests amounts that work.</p></div>
+  <div class="lrow"><b>Give you advice</b>
+    <p>It does arithmetic. It doesn't know whether a basket is any good, and nothing is placed
+       until you confirm it yourself in your own broker.</p></div>
 </div>
 
 <h2>Also here</h2>
-<div class="panel" style="padding:8px 24px">
-  <a class="lrow lnk" href="dashboard.html" style="padding-left:0;padding-right:0">
-    <svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>
-    <div><b>Folio Dashboard →</b>
-      <p>Drop a broker tradebook in for FIFO-matched realised P&amp;L, an equity curve, basket
-         concentration, and a “what if I never sold” counterfactual.</p></div>
-  </a>
-  <a class="lnk lrow" href="onboarding.html" style="padding-left:0;padding-right:0;border-bottom:none">
-    <svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/></svg>
-    <div><b>One-click ordering →</b>
-      <p>Optional, free, about five minutes. Lets the workbench hand a whole basket to Kite
-         pre-filled instead of you typing each order.</p></div>
-  </a>
+<div class="also">
+  <a class="lrow lnk" href="dashboard.html"><b>Dashboard</b>
+    <p>Drop a broker tradebook in for FIFO-matched realised P&amp;L, an equity curve, basket
+       concentration, and a “what if I never sold” counterfactual.</p></a>
+  <a class="lrow lnk" href="onboarding.html"><b>One-click ordering</b>
+    <p>Optional, free, about five minutes. Lets the workbench hand a whole basket to Kite
+       pre-filled instead of you typing each order.</p></a>
 </div>
 
 <div class="foot">
@@ -311,4 +242,4 @@ orders at <b>your</b> capital, not theirs.</p>
   </span>
   <span>Not investment advice. Verify every order in your broker before placing it.</span>
 </div>
-</div></body></html>
+</main></div></body></html>

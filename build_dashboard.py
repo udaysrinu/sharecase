@@ -25,6 +25,7 @@ Re-run this script with a new file and refresh the browser; nothing else changes
 import sys, json, argparse, csv, os
 from collections import defaultdict, deque
 from datetime import datetime
+from itertools import groupby
 
 # ---- column aliases so it works across Zerodha/other broker exports ----
 COL = {
@@ -98,24 +99,41 @@ def fifo(trades):
     roundtrips, realized, buyq, sellq, openq, pre_sold = [], defaultdict(float), defaultdict(float), defaultdict(float), {}, defaultdict(float)
     for sym, tl in by.items():
         lots = deque()
-        for t in tl:
-            q, p = t['qty'], t['price']
-            if t['type'] == 'buy':
-                buyq[sym] += q; lots.append([q, p, t['date']])
-            else:
-                sellq[sym] += q
-                while q > 0 and lots:
-                    lq, lp, ld = lots[0]; m = min(q, lq)
-                    try: hd = (datetime.fromisoformat(t['date']) - datetime.fromisoformat(ld)).days
-                    except Exception: hd = 0
-                    roundtrips.append({'sym': sym, 'entry': ld, 'exit': t['date'], 'qty': m,
-                                       'buy_px': lp, 'sell_px': p, 'pnl': (p-lp)*m,
-                                       'ret': (p-lp)/lp*100 if lp else 0, 'hold': hd})
-                    realized[sym] += (p-lp)*m
-                    lq -= m; q -= m
-                    if lq == 0: lots.popleft()
-                    else: lots[0][0] = lq
-                if q > 0: pre_sold[sym] += q
+
+        def sell(d, q, p):
+            while q > 1e-9 and lots:
+                lq, lp, ld = lots[0]; m = min(q, lq)
+                try: hd = (datetime.fromisoformat(d) - datetime.fromisoformat(ld)).days
+                except Exception: hd = 0
+                roundtrips.append({'sym': sym, 'entry': ld, 'exit': d, 'qty': m,
+                                   'buy_px': lp, 'sell_px': p, 'pnl': (p-lp)*m,
+                                   'ret': (p-lp)/lp*100 if lp else 0, 'hold': hd})
+                realized[sym] += (p-lp)*m
+                lq -= m; q -= m
+                if lq <= 1e-9: lots.popleft()
+                else: lots[0][0] = lq
+            if q > 1e-9: pre_sold[sym] += q
+
+        # Same-day netting: a day with BOTH a buy and a sell settles as INTRADAY on the day's totals
+        # (min(bought, sold) at average buy vs average sell); only the remainder touches holdings.
+        # That is how the broker averages your cost, so plain FIFO drifts from it. Same as dashboard.html.
+        for d, day in groupby(tl, key=lambda x: x['date']):
+            day = list(day)
+            B = [t for t in day if t['type'] == 'buy']; S = [t for t in day if t['type'] != 'buy']
+            buyq[sym] += sum(t['qty'] for t in B); sellq[sym] += sum(t['qty'] for t in S)
+            if not (B and S):
+                for t in day:
+                    lots.append([t['qty'], t['price'], d]) if t['type'] == 'buy' else sell(d, t['qty'], t['price'])
+                continue
+            bq = sum(t['qty'] for t in B); bp = sum(t['qty'] * t['price'] for t in B) / bq
+            sq = sum(t['qty'] for t in S); sp = sum(t['qty'] * t['price'] for t in S) / sq
+            m = min(bq, sq)
+            roundtrips.append({'sym': sym, 'entry': d, 'exit': d, 'qty': m, 'buy_px': bp, 'sell_px': sp,
+                               'pnl': (sp-bp)*m, 'ret': (sp-bp)/bp*100 if bp else 0, 'hold': 0,
+                               'intraday': True})
+            realized[sym] += (sp-bp)*m
+            if sq > bq: sell(d, sq - bq, sp)
+            elif bq > sq: lots.append([bq - sq, bp, d])
         openq[sym] = sum(l[0] for l in lots)
     return roundtrips, dict(realized), dict(pre_sold)
 

@@ -2,90 +2,106 @@
 <title>Method — why sharecase shares weights, not orders</title>
 <meta name="description" content="The reasoning behind sharecase: why a basket must travel as target percentages rather than share counts, why a rebalance has no multiplier, and how far off target whole-share rounding puts you.">
 <style>
-/* ---------- type: self-hosted, latin subset. Direction B ---------- */
-@font-face{font-family:'IBM Plex Sans';src:url(fonts/plex-sans-400.woff2)format('woff2');
-  font-weight:400;font-display:swap}
-@font-face{font-family:'IBM Plex Sans';src:url(fonts/plex-sans-600.woff2)format('woff2');
-  font-weight:600;font-display:swap}
-@font-face{font-family:'IBM Plex Mono';src:url(fonts/plex-mono-400.woff2)format('woff2');
-  font-weight:400;font-display:swap}
-@font-face{font-family:'IBM Plex Mono';src:url(fonts/plex-mono-500.woff2)format('woff2');
-  font-weight:500;font-display:swap}
-@font-face{font-family:'Barlow Semi Condensed';src:url(fonts/barlow-sc-600.woff2)format('woff2');
-  font-weight:600;font-display:swap}
+/* ---------- type: Gloock (display, one weight) + Figtree (everything else), self-hosted, OFL ---------- */
+@font-face{font-family:'Gloock';src:url(fonts/gloock-latin-ext.woff2)format('woff2');font-weight:400;font-display:swap;unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF}
+@font-face{font-family:'Gloock';src:url(fonts/gloock-latin.woff2)format('woff2');font-weight:400;font-display:swap;unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
+@font-face{font-family:'Figtree';src:url(fonts/figtree-latin-ext.woff2)format('woff2');font-weight:400 700;font-display:swap;unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF}
+@font-face{font-family:'Figtree';src:url(fonts/figtree-latin.woff2)format('woff2');font-weight:400 700;font-display:swap;unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
 
-:root{--bg:#E9EAE3;--bg2:#F3F4EE;--panel:#FCFCF8;--panel2:#F3F4EE;--hair:#BCC3B8;--hair2:#A6AFA2;
---tx:#18211D;--tx2:#46534C;--tx3:#5C6A61;--em:#155A78;--gain:#0B5B3A;--action:#155A78;
---rule:#BCC3B8;--rule-strong:#A6AFA2;--display:'Barlow Semi Condensed';--ui:'IBM Plex Sans';
---num:'IBM Plex Mono';--ox:#A52A22;--gold:#7A4E00;--blue:#2b5fc4}
+/* ---------- CRED Money light world + NeoPOP controls (DESIGN.md); tokens, nav and .np match dashboard.html ---------- */
+:root{--bg:#efefee;--bg2:#f5f5f4;--panel:#ffffff;--panel2:#f5f5f4;--hair:#e7e7e7;--hair2:#cfcfcf;--tx:#0f0f0f;--tx2:#555555;--tx3:#6b6b6b;--em:#0f0f0f;--gain:#077f47;--ox:#c2352d;--gold:#8a5f0f;--goldbg:#fcf8ee;--goldline:#e8d6a4;--display:'Gloock',Georgia,serif;--ui:'Figtree';--code:ui-monospace,SFMono-Regular,Menlo,monospace;--np:#0f0f0f;--onnp:#ffffff;--npr:#6f6f6f;--npb:#3b3b3b;--ease:cubic-bezier(.2,.7,.3,1);--t:170ms;--e:cubic-bezier(.22,.61,.36,1);--radius:0px;--radius-full:999px;--ring:var(--tx)}
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:var(--bg);color:var(--tx);font-family:var(--ui),'IBM Plex Sans',system-ui,sans-serif;
-font-size:15.5px;line-height:1.6;padding:0 0 70px}
-.wrap{max-width:820px;margin:0 auto;padding:0 22px}
-.mono{font-family:var(--num),ui-monospace,monospace;font-variant-numeric:tabular-nums}
-h1{font-family:var(--display),'Barlow Semi Condensed',sans-serif;font-size:33px;font-weight:600;
-letter-spacing:-.015em;line-height:1.15;max-width:22em}
-.sub{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--tx3);
-font-weight:600;margin-top:8px}
-.lede{font-size:17px;color:var(--tx2);margin-top:18px;max-width:40em}
-.lede b{color:var(--tx);font-weight:600}
-h2{font-family:var(--display),'Barlow Semi Condensed',sans-serif;font-size:23px;font-weight:600;
-margin:46px 0 3px;letter-spacing:-.01em}
-h2 .n{color:var(--tx3);font-family:var(--num),monospace;font-size:15px;font-weight:400;
-margin-right:9px;letter-spacing:0}
-h3{font-size:15.5px;font-weight:600;margin:26px 0 6px}
-p{margin-top:11px;max-width:42em}
-p.q{font-size:16px;color:var(--tx);border-left:3px solid var(--rule-strong);
-padding:2px 0 2px 16px;margin:16px 0;max-width:40em}
-ul,ol{margin:11px 0 0 22px;max-width:41em}li{margin:5px 0}
-.panel{background:var(--panel);border:1px solid var(--hair);border-radius:var(--radius-lg,16px);
-padding:19px 22px;margin-top:16px;box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 26px -12px rgba(0,0,0,.10)}
-pre{background:var(--panel2);border:1px solid var(--hair);border-radius:6px;padding:13px 15px;
-overflow-x:auto;font-family:var(--num),ui-monospace,monospace;font-size:12.5px;line-height:1.65;
-margin-top:13px}
-code{background:var(--panel2);border:1px solid var(--hair);border-radius:6px;padding:1px 5px;
-font-family:var(--num),ui-monospace,monospace;font-size:13px}
-table{width:100%;border-collapse:collapse;margin-top:14px;font-size:14px}
-th{font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--tx3);font-weight:600;
-text-align:left;padding:0 10px 8px 0;border-bottom:1px solid var(--rule-strong)}
-th.r,td.r{text-align:right}
-td{padding:9px 10px 9px 0;border-bottom:1px solid var(--rule);vertical-align:top}
-tr:last-child td{border-bottom:none}
-td.mono,th.mono{font-family:var(--num),monospace;font-variant-numeric:tabular-nums}
-.good{color:var(--gain);font-weight:600}.bad{color:var(--ox);font-weight:600}
-.warn{border:1px solid var(--gold);background:#F7EEDC;color:var(--gold);border-radius:10px;
-padding:13px 16px;font-size:13.5px;margin-top:16px}
-.warn b{color:var(--gold)}
-.key{border:1px solid var(--em);background:rgba(21,90,120,.05);border-radius:10px;
-padding:15px 18px;margin-top:18px;font-size:15px;color:var(--tx)}
-.key b{color:var(--em)}
-a{color:var(--em)}
-.foot{border-top:1px solid var(--rule);margin-top:52px;padding-top:20px;font-size:11.5px;
-color:var(--tx3);line-height:1.8}
-.foot a{color:var(--tx2)}
-
-/* motion + nav, identical to every other page */
-:root{--t:170ms;--e:cubic-bezier(.22,.61,.36,1);--radius:10px;--radius-lg:16px;--radius-sm:6px;
---ring:var(--em)}
-a,button{transition:background-color var(--t) var(--e),border-color var(--t) var(--e),
-color var(--t) var(--e),box-shadow var(--t) var(--e)}
-:focus-visible{outline:2px solid var(--em);outline-offset:2px;border-radius:var(--radius)}
-@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;
-transition-duration:.01ms!important}}
+html{background:var(--bg);scrollbar-color:var(--hair2) transparent;accent-color:var(--tx);caret-color:var(--tx)}
+::selection{background:var(--tx);color:#fff}
+body{background:var(--bg);color:var(--tx);padding:0 16px 56px;font:400 .9375rem/1.5 var(--ui),system-ui,sans-serif;
+  font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1280px;margin:0 auto;background:var(--panel);border-radius:18px 18px 0 0;padding:28px 36px 48px;min-height:100vh}
+.doc{max-width:46rem;margin:0 auto}
+a{color:var(--tx);text-underline-offset:4px}
+b,strong{font-weight:700}
+.mono{font-family:var(--ui);font-variant-numeric:tabular-nums}
+a,button,.tab,.fbtn,.atile,.card,.hstep,tbody tr,input,select,textarea,.drop,.setup{
+  transition:background-color var(--t) var(--e),border-color var(--t) var(--e),
+  color var(--t) var(--e),box-shadow var(--t) var(--e),transform var(--t) var(--e)}
+:focus-visible{outline:2px solid var(--tx);outline-offset:2px}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;
+    transition-duration:.01ms!important;scroll-behavior:auto!important}}
+/* ---------- nav: fixed inner width so it never reshapes between pages ---------- */
 .ftbar{width:100%;border-bottom:1px solid var(--hair);background:var(--panel);
-box-shadow:0 1px 2px rgba(0,0,0,.03);margin-bottom:34px}
+  box-shadow:0 1px 2px rgba(0,0,0,.03);margin-bottom:26px}
 .ftnav{max-width:1180px;margin:0 auto;display:flex;gap:2px;align-items:center;
-flex-wrap:nowrap;overflow-x:auto;padding:9px 20px;-webkit-overflow-scrolling:touch}
+  flex-wrap:nowrap;overflow-x:auto;padding:9px 20px;-webkit-overflow-scrolling:touch}
 .ftnav::-webkit-scrollbar{display:none}
 .ftnav a{font-size:12.5px;color:var(--tx2);text-decoration:none;padding:8px 13px;
-border-radius:var(--radius);white-space:nowrap;display:inline-flex;align-items:center;gap:6px;
-min-height:34px;line-height:1}
-.ftnav a:hover{background:var(--panel2);color:var(--tx)}
+  border-radius:var(--radius);white-space:nowrap;display:inline-flex;align-items:center;gap:6px;
+  min-height:34px;line-height:1}   /* line-height:1 — else each page's body lh resizes the bar */
+.ftnav a:hover{background:var(--panel2);color:var(--tx);transform:none}
 .ftnav a.on{background:var(--em);color:#fff;font-weight:600}
-.ftnav a.brand{font-family:var(--display),sans-serif;font-weight:600;font-size:13.5px;
-color:var(--tx);margin-right:8px;padding-left:0}
+.ftnav a.brand{font-family:var(--display);font-weight:400;font-size:13.5px;color:var(--tx);margin-right:8px;padding-left:0}
 .ftnav a.brand:hover{background:transparent;color:var(--em)}
 .ftnav svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.9;flex:none}
+/* nav band: same inner width and height on every page; ink pill for the current page */
+.ftbar{background:transparent;border:none;box-shadow:none;margin:0}
+.ftnav{padding:12px 20px}
+.ftnav a{font:600 .8125rem/1 var(--ui);color:var(--tx2);border-radius:999px;min-height:40px;padding:0 15px}
+.ftnav a:hover{background:var(--panel);color:var(--tx)}
+.ftnav a.on{background:var(--tx);color:#fff;font-weight:700}
+.ftnav a.brand{font:400 1.25rem/1 var(--display);letter-spacing:-.01em;color:var(--tx)}
+.ftnav a.brand:hover{background:transparent;color:var(--tx)}
+/* NeoPOP plunk button (CRED's open-source NeoPOP, Apache-2.0, redrawn in CSS): solid right and bottom
+   edges skewed 45 degrees; pressing moves the face into the edge and the edge disappears */
+.np{--d:4px;position:relative;display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:44px;
+  padding:0 22px;margin:0 var(--d) var(--d) 0;background:var(--np);color:var(--onnp);border:none;border-radius:0;cursor:pointer;
+  font:600 .875rem/1 var(--ui);letter-spacing:0;transition:transform .12s var(--ease)}
+.np::before,.np::after{content:'';position:absolute;transition:opacity .12s var(--ease)}
+.np::before{top:0;right:calc(var(--d) * -1);width:var(--d);height:100%;background:var(--npr);transform-origin:left top;transform:skewY(45deg)}
+.np::after{left:0;bottom:calc(var(--d) * -1);width:100%;height:var(--d);background:var(--npb);transform-origin:left top;transform:skewX(45deg)}
+.np:active{transform:translate(var(--d),var(--d))}
+.np:active::before,.np:active::after{opacity:0}
+.np.ghost{background:var(--panel);color:var(--tx);box-shadow:inset 0 0 0 2px var(--tx);--npr:var(--tx);--npb:var(--tx)}
+.np:disabled{background:var(--hair2);color:var(--tx3);cursor:not-allowed;transform:none}
+.np:disabled::before,.np:disabled::after{display:none}
+a.np{text-decoration:none}
+/* type: Gloock for the title and section heads (one weight, never synthesised), Figtree for the rest */
+h1{font:400 1.75rem/1.12 var(--display);letter-spacing:-.015em;text-wrap:balance}
+.sub{font:400 .9375rem/1.5 var(--ui);color:var(--tx3);margin-top:6px}
+h2{font:400 1.5rem/1.2 var(--display);letter-spacing:-.01em;margin:48px 0 16px;text-wrap:balance}
+h1,h2,.sn,.n{font-synthesis:none}
+p,ul,ol{max-width:68ch}
+.lede{font-size:1.0625rem;line-height:1.55;color:var(--tx2);margin-top:16px}
+.lede b{color:var(--tx)}
+code{font:500 .8125rem/1.4 var(--code);background:var(--panel2);padding:2px 6px}
+.note{font-size:.875rem;color:var(--tx3);margin-top:12px}
+/* notices: gold box, 1px edge all round */
+.warn{background:var(--goldbg);border:1px solid var(--goldline);color:var(--tx);padding:16px 20px;margin-top:24px;max-width:68ch}
+.foot{margin-top:56px;padding-top:12px;border-top:1px dashed var(--hair2);font:400 .8125rem/1.7 var(--ui);color:var(--tx3)}
+.foot a{color:var(--tx2);display:inline-flex;align-items:center;min-height:44px}
+@media(max-width:620px){body{padding:0}.wrap{padding:22px 16px 40px;border-radius:18px 18px 0 0}}
+/* ---------- method: a long read on the sheet; tables and worked examples sit on rules, not in boxes ---------- */
+.doc{font-size:1rem;line-height:1.6}
+.lede{font-size:1.125rem}
+h3{font:700 1.0625rem/1.35 var(--ui);margin:32px 0 8px}
+p{margin-top:12px}
+p.q{font:400 1.25rem/1.45 var(--display);font-synthesis:none;color:var(--tx);margin:24px 0;padding-left:20px;border-left:1px solid var(--tx);max-width:40em}
+p.q .x{font-family:var(--ui);font-weight:500}  /* Gloock draws × tiny and low */
+ul,ol{margin:12px 0 0 22px}
+li{margin:6px 0}
+pre{font:500 .8125rem/1.65 var(--code);background:var(--panel2);padding:14px 16px;overflow-x:auto;margin-top:16px}
+table{width:100%;border-collapse:collapse;margin-top:16px;font-size:.9375rem;border-top:1.5px solid var(--tx)}
+th{font:600 .75rem/1.3 var(--ui);letter-spacing:.12em;text-transform:uppercase;color:var(--tx3);text-align:left;
+  padding:14px 12px 10px 0;border-bottom:1px solid var(--hair2);vertical-align:bottom}
+td{padding:11px 12px 11px 0;border-bottom:1px dashed var(--hair2);vertical-align:top}
+th:last-child,td:last-child{padding-right:0}
+th.r,td.r{text-align:right}
+.good,.bad{font-weight:700}
+/* the takeaway and the worked example: a statement line, ink rule on top, dashed under */
+.key{border-top:1.5px solid var(--tx);border-bottom:1px dashed var(--hair2);padding:16px 0;margin-top:24px;font-size:1.0625rem;max-width:68ch}
+.panel{border-top:1.5px solid var(--tx);border-bottom:1px dashed var(--hair2);padding:4px 0 24px;margin-top:24px}
+.panel h3:first-child{margin-top:16px}
+.panel table{border-top:1px solid var(--hair2);margin-top:20px}
+.foot{line-height:1.5}
+.foot a{color:var(--tx)}
 </style></head><body>
 <div class="ftbar"><nav class="ftnav" aria-label="Main">
 <a href="index.html" class="brand">sharecase</a>
@@ -98,15 +114,14 @@ color:var(--tx);margin-right:8px;padding-left:0}
 document.querySelectorAll('.ftnav a[data-p]').forEach(function(a){
   if(a.getAttribute('data-p')===f){a.classList.add('on');a.setAttribute('aria-current','page');}});})();</script>
 
-<div class="wrap">
-<div class="sub">Method</div>
+<div class="wrap"><main class="doc">
 <h1>Why a basket travels as percentages, and never as an order list</h1>
 <p class="lede">Two people follow the same basket with different amounts of money. When it
 rebalances, what exactly does one send the other? Getting this wrong doesn't produce a small
-error — it produces <b>somebody else's portfolio</b>. This page is the reasoning, with the
+error: it produces <b>somebody else's portfolio</b>. This page is the reasoning, with the
 arithmetic worked out.</p>
 
-<h2><span class="n">01</span>The thing that is actually being shared</h2>
+<h2>The thing that is actually being shared</h2>
 <p>A basket can be written down two ways.</p>
 <table>
   <thead><tr><th>As share counts</th><th>As target weights</th></tr></thead>
@@ -124,8 +139,8 @@ wallet.</p>
 <div class="key"><b>So a sheet holds weights and reference prices.</b> Your quantities are derived
 from it, locally, from your own capital. Nobody's share counts ever travel.</div>
 
-<h2><span class="n">02</span>Investing picks an amount. Rebalancing cannot.</h2>
-<p>These look like the same operation and they are not. They are duals — what is free in one is
+<h2>Investing picks an amount. Rebalancing cannot.</h2>
+<p>These look like the same operation and they are not. They are duals: what is free in one is
 determined in the other.</p>
 <table>
   <thead><tr><th></th><th>First-time buy</th><th>Rebalance</th></tr></thead>
@@ -143,13 +158,13 @@ rebalance           value  = Σ (shares you hold × price)      ← not a choice
 <p>This is why the workbench offers you multiples of the minimum when you buy in, and offers you
 <b>no multiplier at all</b> when you rebalance. There is nothing to multiply: your capital is
 already whatever your holding is worth.</p>
-<p class="q">"I bought 2× the minimum, my friend bought 1×. The rebalance is 2× of my holdings.
-How does his app know to use 1×?"</p>
-<p>It never needs to know. He isn't given a multiple of anything — he's given weights, and he
+<p class="q">“I bought 2<span class="x">×</span> the minimum, my friend bought 1<span class="x">×</span>. The rebalance is 2<span class="x">×</span> of my holdings.
+How does his app know to use 1<span class="x">×</span>?”</p>
+<p>It never needs to know. He isn't given a multiple of anything: he's given weights, and he
 applies them to his own value. The multiplier is not transmitted because it is not a property of
 the basket. It's a property of a wallet, and each wallet supplies its own.</p>
 
-<h2><span class="n">03</span>What happens if you send the order list instead</h2>
+<h2>What happens if you send the order list instead</h2>
 <p>Worth seeing, because it is the intuitive thing to do and it fails hard. Illustrative numbers:
 the sample four-stock basket, with a ₹12,554 floor, one holder at ₹4,00,000 (about 32× the floor)
 and one at ₹80,000 (about 6.4×).
@@ -174,13 +189,13 @@ The manager moves RELIANCE 30% → 35% and TCS 25% → 20%.</p>
   </table>
 </div>
 <p>The failure is not proportional. A sell sized for a big holding doesn't shrink gracefully
-against a small one — it goes through zero, and a position vanishes.</p>
+against a small one: it goes through zero, and a position vanishes.</p>
 
-<h2><span class="n">04</span>Whole shares are the real enemy</h2>
+<h2>Whole shares are the real enemy</h2>
 <p>Exchanges won't sell you 0.4 of a share, so every basket is an approximation. The size of the
 approximation is set by the priciest stock relative to your capital, and it is why a basket has a
 floor at all. The workbench's minimum is the smallest amount its own rounding can fund:</p>
-<pre>qty     = round(amount × weight / price)             for every stock, as in 02
+<pre>qty     = round(amount × weight / price)             for every stock, as above
 minimum = the smallest amount where every qty ≥ 1 and Σ (qty × price) ≤ amount</pre>
 <p>Below that, a stock gets no share at all or the orders cost more than you typed. Most tools
 quietly drop the stock and hand you a more concentrated portfolio than you asked for. This one
@@ -189,16 +204,16 @@ refuses, and says which stock set the floor. On the sample basket the minimum is
 <span class="mono">₹12,553.40</span>.</p>
 <p>The workbench searches for that amount rather than solving for it, because the closed forms were
 wrong. We shipped <span class="mono">max(price / weight)</span> at the start, the point where the
-binding stock reaches exactly one share, and it overstated the floor —
-<span class="mono">₹14,809</span> against <span class="mono">₹12,554</span> on the sample — and
+binding stock reaches exactly one share, and it overstated the floor
+(<span class="mono">₹14,809</span> against <span class="mono">₹12,554</span> on the sample) and
 refused amounts that buy a perfectly complete basket. Every <em>other</em> stock rounds
 <em>down</em> from its fractional target at that point, so the cash you actually need is less. The
 gap grows with the number of holdings and the spread of their weights.</p>
 <p>Rounding those other stocks down and adding up the bill gives a floor formula:
 <span class="mono">round up ( Σ price × round down ( scale × weight / price ) )</span>, with
 <span class="mono">scale = max(price / weight)</span>. It reproduces a minimum investment amount
-smallcase publishes for one of its own baskets — <span class="mono">₹385</span>, from a true cost of
-<span class="mono">₹384.7156</span> — to the rupee, and that is the regression test in
+smallcase publishes for one of its own baskets, <span class="mono">₹385</span> from a true cost of
+<span class="mono">₹384.7156</span>, to the rupee, and that is the regression test in
 <span class="mono">selfTest()</span>. It is <em>not</em> the amount the workbench refuses below:
 it rounds every stock down while the orders round to the nearest share, so on a real sheet it can
 name an amount the orders then overspend, or one well above what they need. On the sample basket it
@@ -206,10 +221,10 @@ says <span class="mono">₹12,905</span>, ₹351 more than the orders need.</p>
 <p>The formula's last step rounds <em>up</em>, and that direction is not arbitrary: a minimum that
 rounded down would be short of its own basket. Publish <span class="mono">₹384</span> for a basket that
 costs <span class="mono">₹384.72</span> and someone who invests exactly the stated minimum cannot
-buy it — the same defect as overstating, just a rupee wide instead of ₹2,255. So the inner step
+buy it: the same defect as overstating, just a rupee wide instead of ₹2,255. So the inner step
 rounds down (you cannot buy part of a share) and the outer step rounds up (you must cover the
 whole bill).</p>
-<p style="font-size:13.5px;color:var(--tx2)">Honest caveat: smallcase documents the
+<p class="note">Honest caveat: smallcase documents the
 <em>definition</em> of its minimum but
 publishes no formula and no rounding rule. Rounding up is the only self-consistent reading, not a
 confirmed fact.</p>
@@ -226,12 +241,12 @@ resolution of the whole basket:</p>
   </tbody>
 </table>
 <p>At ₹29,127 a position is literally <span class="mono">3, 2, 4, 17</span> shares. A five
-point change in target weight produced <b>zero orders</b> — the rounding was larger than the
+point change in target weight produced <b>zero orders</b>: the rounding was larger than the
 rebalance. Small holdings can't express fine instructions.</p>
 
-<h2><span class="n">05</span>Which means the biggest holder should publish</h2>
+<h2>Which means the biggest holder should publish</h2>
 <p>A sheet reconstructed from real holdings inherits that holder's rounding. Its weights are not
-the manager's exact intent — they're the closest thing expressible at that wallet size.</p>
+the manager's exact intent; they're the closest thing expressible at that wallet size.</p>
 <table>
   <thead><tr><th>Publisher's holding</th><th class="r">Error baked into the sheet they share</th></tr></thead>
   <tbody>
@@ -249,7 +264,7 @@ it is too coarse to pass on.</p>
 <h3>Is there a fractional multiplier?</h3>
 <p>Not on the capital, because that would only restate the cash box. "Rebalance at 0.5×" means
 "withdraw half my value", and rupees are the better unit: you know you have ₹50,000 to add, not
-that you want 1.15× of your portfolio. It is also ambiguous — half of your current value, or half
+that you want 1.15× of your portfolio. It is also ambiguous: half of your current value, or half
 of the target?</p>
 <p>There <i>is</i> a useful fraction, and it scales the <b>orders</b> rather than the capital:</p>
 <pre>order = round( (target_qty − held) × k )        k = 1.00, 0.75, 0.50, 0.25</pre>
@@ -264,8 +279,8 @@ account forever, which is worse than either finishing or not starting.</p>
 you just executed looks like it never happened, so the next run tells you to buy the whole position <b>again</b>. Both holdings parsers
 add T1 to the settled quantity.</p>
 
-<h2><span class="n">06</span>State, not events</h2>
-<p>A rebalance email is an <i>event</i> — "I bought these, I sold those." A sheet is <i>state</i> —
+<h2>State, not events</h2>
+<p>A rebalance email is an <i>event</i>: "I bought these, I sold those." A sheet is <i>state</i>:
 "the basket is now this." Events only make sense against the exact state they were computed
 from, which is why forwarding one to a friend cannot work: his prior state is different.</p>
 <p>So the flow is: you apply the event to <i>your</i> state, which yields new state, and the
@@ -280,13 +295,13 @@ their own orders, sized to their own money</pre>
 were computed against one specific position, and there are two detectable signatures when it meets
 a different one:</p>
 <ul>
-  <li><b>It asks to sell more than the sheet holds.</b> Arithmetically impossible — refused
+  <li><b>It asks to sell more than the sheet holds.</b> Arithmetically impossible, so it is refused
       outright, with the numbers shown.</li>
   <li><b>It sells a meaningful holding down to exactly zero</b>, or moves more than about a third
       of the basket's value. Both are unusual for a real rebalance and strongly suggest the email
       belongs to a larger position. Flagged, with the advice to ask for the sender's sheet.</li>
 </ul>
-<p>Without those checks the result is not an error message — it is a plausible-looking basket with
+<p>Without those checks the result is not an error message: it is a plausible-looking basket with
 a stock missing. A <span class="mono">SELL 5</span> sized for the ₹4,00,000 holding exactly cancels the
 ₹80,000 holder's entire position, so the stock silently disappears and the sheet claims one fewer holding
 than the manager published.</p>
@@ -296,7 +311,7 @@ baskets appears once in your broker's holdings, as one merged quantity. Any per-
 calculated from that number is wrong for both baskets. The workbench flags it rather than
 pretending the number means something.</div>
 
-<h2><span class="n">07</span>What this buys you</h2>
+<h2>What this buys you</h2>
 <ul>
   <li>One file works at ₹20,000 and at ₹20,00,000, with no versions and no per-person maths.</li>
   <li>Nobody learns anybody else's position size. Weights reveal proportions, never amounts.</li>
@@ -310,4 +325,4 @@ pretending the number means something.</div>
   <a href="friends.html">Plain-English guide</a><br>
   Not investment advice. Verify every order in your broker before placing it.
 </div>
-</div></body></html>
+</main></div></body></html>

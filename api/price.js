@@ -13,7 +13,9 @@
 // to rotate.
 //
 //   GET /api/price?symbols=RELIANCE,TCS,NOTREAL
-//   -> {"prices":{"RELIANCE":2965.5,"TCS":3702.1},"missing":["NOTREAL"],"asof":"2026-01-01T…"}
+//   -> {"prices":{"RELIANCE":2965.5,"TCS":3702.1},"prev":{"RELIANCE":2950.1,"TCS":3711},
+//       "missing":["NOTREAL"],"asof":"2026-01-01T…"}
+// `prev` is the previous session's close, so a page can say what moved TODAY from the same fetch.
 
 const MAX_SYMBOLS = 60;      // one basket is ~25; a cap keeps a stray loop from burning the free tier
 const TIMEOUT_MS  = 8000;
@@ -40,8 +42,8 @@ const SERIES = /-(BE|BZ|BL|SM|ST|IL|GB|GS)$/;
 async function yahooPrice(sym) {
   // Ask for exactly what the caller named first, then fall back to the de-suffixed base. Order
   // matters: anything Yahoo does carry under its full name keeps working untouched.
-  const px = await yahooOne(sym);
-  if (px !== null || !SERIES.test(sym)) return px;
+  const r = await yahooOne(sym);
+  if (r !== null || !SERIES.test(sym)) return r;
   return yahooOne(sym.replace(SERIES, ''));
 }
 
@@ -65,12 +67,45 @@ async function yahooOne(sym) {
     // Reject anything that is not a positive number, and anything not priced in rupees — a wrong
     // currency silently mixed into a basket is worse than a missing price.
     if (typeof px !== 'number' || !(px > 0) || meta?.currency !== 'INR') return null;
-    return Math.round(px * 100) / 100;
+    const pc = meta?.chartPreviousClose ?? meta?.previousClose;
+    return { px: Math.round(px * 100) / 100, prev: typeof pc === 'number' && pc > 0 ? Math.round(pc * 100) / 100 : null };
   } catch {
     return null;
   } finally {
     clearTimeout(timer);
   }
+}
+
+// GET /api/price?hist=SYMBOL&from=YYYY-MM-DD -> {s, ticker, d:[dates], c:[closes], splits:[{d,r}]}
+// Daily closes for one stock, for the Dashboard's per-stock chart. Yahoo's closes are split- and
+// bonus-ADJUSTED, so `splits` comes back too: a page plotting its own (raw) trade prices on this series
+// must divide each by the splits that happened after it.
+async function yahooChart(ticker, qs) {
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), TIMEOUT_MS);
+  try {
+    const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?${qs}`,
+      { signal: ctl.signal, headers: { 'User-Agent': 'Mozilla/5.0 (compatible; sharecase/1.0)' } });
+    return r.ok ? await r.json() : null;
+  } catch { return null; } finally { clearTimeout(timer); }
+}
+const ist = sec => new Date((sec + 19800) * 1000).toISOString().slice(0, 10);   // Yahoo stamps sessions in UTC
+async function history(req, res) {
+  const sym = String(req.query.hist).trim().toUpperCase();
+  if (!/^[A-Z0-9][A-Z0-9&.\-]{0,19}$/.test(sym)) return res.status(400).json({ error: 'bad symbol' });
+  const now = Math.floor(Date.now() / 1000);
+  const from = /^\d{4}-\d\d-\d\d$/.test(String(req.query.from || '')) ? Math.floor(Date.parse(req.query.from) / 1000) : now - 365 * 86400;
+  const b = sym.replace(SERIES, '');
+  for (const ticker of [`${sym}.NS`, `${b}.NS`, `${b}.BO`]) {        // NSE first, BSE for BSE-only stocks
+    const r = (await yahooChart(ticker, `period1=${from}&period2=${now}&interval=1d&events=split`))?.chart?.result?.[0];
+    if (!r || r.meta?.currency !== 'INR') continue;
+    const cl = r.indicators?.quote?.[0]?.close || [], d = [], c = [];
+    (r.timestamp || []).forEach((t, i) => { if (typeof cl[i] === 'number' && cl[i] > 0) { d.push(ist(t)); c.push(Math.round(cl[i] * 100) / 100); } });
+    if (d.length < 2) continue;
+    const splits = Object.values(r.events?.splits || {}).map(x => ({ d: ist(x.date), r: x.numerator / x.denominator }));
+    res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600');
+    return res.status(200).json({ s: sym, ticker, d, c, splits });
+  }
+  return res.status(404).json({ error: 'no price history', s: sym });
 }
 
 export default async function handler(req, res) {
@@ -81,6 +116,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'GET only' });
 
+  if (req.query.hist) return history(req, res);
   const raw = String(req.query.symbols || '').trim();
   if (!raw) return res.status(400).json({ error: 'pass ?symbols=A,B,C' });
 
@@ -95,14 +131,19 @@ export default async function handler(req, res) {
   }
 
   const results = await Promise.all(symbols.map(async s => [s, await yahooPrice(s)]));
-  const prices = {}, missing = [];
-  for (const [s, px] of results) { if (px === null) missing.push(s); else prices[s] = px; }
+  const prices = {}, prev = {}, missing = [];
+  for (const [s, r] of results) {
+    if (r === null) { missing.push(s); continue; }
+    prices[s] = r.px;
+    if (r.prev !== null) prev[s] = r.prev;
+  }
 
   // Short cache: prices move, but a page that refetches on every keystroke should not hit Yahoo each
   // time. 60s is well inside "current" for sizing a basket you are about to place by hand.
   res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=60');
   return res.status(200).json({
     prices,
+    prev,
     missing,
     asof: new Date().toISOString(),
     source: 'query1.finance.yahoo.com/v8/finance/chart',
