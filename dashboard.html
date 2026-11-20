@@ -360,6 +360,7 @@ td.sym,table.mv td.sym{font:700 .8125rem var(--ui);letter-spacing:.02em} td.r{fo
 .ms summary{grid-template-columns:minmax(0,1fr) auto}
 .ms table.mv{margin:4px 0 8px}
 .tscroll{overflow-x:auto}
+table.mv tfoot td{font-weight:700;border-top:1.5px solid var(--tx);border-bottom:none;padding:10px 10px 4px 0;white-space:nowrap}
 button.stk{display:inline-flex;align-items:center;min-height:40px;background:none;border:none;padding:0;margin:0;font:inherit;color:inherit;letter-spacing:inherit;
   cursor:pointer;text-decoration:underline;text-decoration-color:var(--hair2);text-decoration-thickness:1.5px;text-underline-offset:4px}
 button.stk:hover{text-decoration-color:var(--tx)}
@@ -759,7 +760,6 @@ function render(d){DATA=d;document.getElementById('upd').textContent=d.updated;
    <div class="bigc"><div class="t"><svg width="13" height="13" fill="none" stroke="#c2352d" stroke-width="2.2" viewBox="0 0 24 24"><path d="M12 5v14M5 12l7 7 7-7" stroke-linecap="round"/></svg>Heaviest Trade</div><div class="n neg">${bl.sym} · ${M(bl.pnl)}</div><div class="d">${bl.ret.toFixed(1)}% in ${bl.hold}d</div></div></div>`
    :`<div class="note">No closed round-trips in this data. Realised P&amp;L needs a <b>tradebook</b> —
       drop one above and this tab fills in.</div>`}`;
-  const lt=document.getElementById('lt');if(lt)lt.querySelectorAll('th').forEach((i,ix)=>i.onclick=()=>{const tb=lt.querySelector('tbody'),rows=[...tb.rows],num=ix>=2,asc=i.dataset.a!=='1';i.dataset.a=asc?'1':'0';rows.sort((a,b)=>{let x=a.cells[ix].innerText.replace(/[₹,%dkLCr→ ]/g,'').replace('−','-'),y=b.cells[ix].innerText.replace(/[₹,%dkLCr→ ]/g,'').replace('−','-');if(num)return asc?(+x||0)-(+y||0):(+y||0)-(+x||0);return asc?x.localeCompare(y):y.localeCompare(x)});rows.forEach(r=>tb.appendChild(r))});
   // STORY — the whole piece is an argument about round-trips, so with none there is nothing to say.
   const wo=d.inwindow-bw.pnl;
   // The window label was hard-coded to one quarter; derive it from the months actually present.
@@ -951,13 +951,14 @@ async function openStock(sym){
     <dl class="hl" id="stkfacts"></dl>
     <div class="lgd" style="margin-top:28px"><span><i style="background:#0f0f0f"></i>Daily close</span><span><svg width="12" height="12" aria-hidden="true"><circle cx="6" cy="6" r="5" fill="#077f47"/></svg> Bought</span><span><svg width="12" height="12" aria-hidden="true"><rect x="1" y="1" width="10" height="10" fill="#c2352d"/></svg> Sold</span>${q?'<span><i style="background:#8a5f0f"></i>Your average cost</span>':''}</div>
     <div class="tsc" id="stkch"><div class="note">Loading the price history…</div></div>
+    <div id="stksales"></div>
     <h2>Every trade<small>one row per day and side, newest first; Booked is what that day’s sale made, FIFO</small></h2>
     <div class="tscroll"><table class="mv"><thead><tr><th>Date</th><th>Action</th><th class="r">Shares</th><th class="r">Price</th><th class="r w">Value</th><th class="r">Booked</th></tr></thead>${hist}</table></div>`;
   if(!dl.open) dl.showModal(); body.scrollTop=0;
   const facts=(now,whatIf)=>{document.getElementById('stkfacts').innerHTML=
      `<div><dt>Now</dt><dd>${now!=null?PX(now):'—'}</dd><small>${q?`avg cost ${PX(avg)} · <span class="${cls(q*(now-avg))}">${sg(q*(now-avg))}${Mfull(Math.abs(q*(now-avg))).replace('−','')} (${pctOf(q*(now-avg),inv)})</span> open`:'not held'}</small></div>
       <div><dt>Booked</dt><dd class="${cls(booked)}">${R.length?Mfull(booked):'—'}</dd><small>${R.length?`${(n=>n+' sale day'+(n>1?'s':''))(new Set(R.map(t=>t.exit)).size)} · bought ${Q(buys.reduce((a,t)=>a+t.qty,0))}, sold ${Q(sells.reduce((a,t)=>a+t.qty,0))}`:'nothing sold yet'}</small></div>
-      <div><dt>If you had never sold</dt>${whatIf}</div>`;};
+      <div><dt>If you had kept what you sold</dt>${whatIf}</div>`;};
   facts(ltp,'<dd>…</dd><small>needs the price history</small>');
   const from=T.length?new Date(DT(T[0].date)-45*864e5).toISOString().slice(0,10):'';
   let j=HIST[k]; if(j===undefined){ try{const r=await fetch(`/api/price?hist=${encodeURIComponent(k)}&from=${from}`); j=r.ok?await r.json():null;}catch(_){j=null;} HIST[k]=j; }
@@ -968,7 +969,19 @@ async function openStock(sym){
   // a trade before a split is drawn at price ÷ (splits after it), and its share count × the same
   const adj=dt=>j.splits.filter(x=>x.d>dt).reduce((a,x)=>a*x.r,1);
   const soldQ=sells.reduce((a,t)=>a+t.qty*adj(t.date),0), soldFor=sells.reduce((a,t)=>a+t.qty*t.price,0), kept=soldQ*now, gap=kept-soldFor;
-  facts(now, sells.length?`<dd class="${cls(-gap)}">${Mfull(kept)}</dd><small>the shares you sold, at today’s price, against ${Mfull(soldFor)} you got: selling ${gap>0?'cost you':'saved you'} <span class="${cls(-gap)}">${Mfull(Math.abs(gap))}</span></small>`:'<dd>—</dd><small>nothing sold yet</small>');
+  const sd=Object.values(days).filter(r=>r.type==='sell'&&!r.ca).sort((a,b)=>a.d<b.d?1:a.d>b.d?-1:0);
+  const nS=sd.length, plural=n=>n===1?'':'s';
+  facts(now, sells.length?`<dd class="${cls(-gap)}">${gap>0?'Cost you':'Saved you'} ${Mfull(Math.abs(gap))}</dd><small>You sold ${Q(sells.reduce((a,t)=>a+t.qty,0))} shares in ${nS} sale${plural(nS)} for ${Mfull(soldFor)}. Kept, they’d be worth ${Mfull(kept)} at today’s ${PX(now)}.${nS>1?' Each sale is below.':''}</small>`:'<dd>—</dd><small>nothing sold yet</small>');
+  // one row per sale day: what you got, what FIFO booked, what those shares are worth today, and the verdict
+  if(nS){let tq=0,tg=0,tk=0,tb=0;
+    const rowsH=sd.map(r=>{const kept1=r.q*adj(r.d)*now, gap1=kept1-r.v, b=bookedOn[r.d]||0; tq+=r.q; tg+=r.v; tk+=kept1; tb+=b;
+      return `<tr><td>${fmtDate(r.d)}</td><td class="r">${Q(r.q)}</td><td class="r">${PX(r.v/r.q)}</td><td class="r">${Mfull(r.v)}</td>
+        <td class="r ${cls(b)}">${Mfull(b)}</td><td class="r">${Mfull(kept1)}</td>
+        <td class="r ${cls(-gap1)}" data-sort="${(-gap1).toFixed(2)}">${gap1>0?'cost you':'saved you'} ${Mfull(Math.abs(gap1))}</td></tr>`;}).join('');
+    document.getElementById('stksales').innerHTML=`<h2>Each sale, against holding to today<small>what you got, what FIFO booked, and what those same shares would be worth at today’s ${PX(now)}</small></h2>
+      <div class="tscroll"><table class="mv"><thead><tr><th>Sold on</th><th class="r">Shares</th><th class="r">Sold at</th><th class="r">You got</th><th class="r">Booked</th><th class="r">Worth today</th><th class="r">Selling</th></tr></thead>
+      <tbody>${rowsH}</tbody><tfoot><tr><td>Total</td><td class="r">${Q(tq)}</td><td></td><td class="r">${Mfull(tg)}</td><td class="r ${cls(tb)}">${Mfull(tb)}</td><td class="r">${Mfull(tk)}</td>
+      <td class="r ${cls(tg-tk)}">${tk>tg?'cost you':'saved you'} ${Mfull(Math.abs(tk-tg))}</td></tr></tfoot></table></div>`;}
   const pts=j.d.map((d0,i)=>({d:d0,v:j.c[i]})), mk=Object.values(days).filter(r=>!r.ca).map(r=>({d:r.d,v:r.v/r.q/adj(r.d),t:{type:r.type,qty:r.q,price:r.v/r.q}}));  // one marker per day and side, like the table
   const series=[{name:'Close',label:'',color:'#0f0f0f',pts}];
   if(q) series.push({name:'Your average cost',label:'avg',color:'#8a5f0f',dash:true,pts:[{d:pts[0].d,v:avg},{d:pts[pts.length-1].d,v:avg}]});
@@ -1356,4 +1369,5 @@ function load(){fetch('live.json?t='+Date.now()).then(r=>{
     renderUpbar();})}
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));document.querySelectorAll('.view').forEach(x=>x.classList.remove('on'));t.classList.add('on');document.getElementById(t.dataset.v).classList.add('on');drawCharts()});
 load();setInterval(load,30000);
-</script></body></html>
+</script>
+<script src="sorttable.js"></script></body></html>
