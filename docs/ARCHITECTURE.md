@@ -10,38 +10,13 @@ The pages get your trades in one of two ways:
   broker's contract notes from Gmail and serves the result to these same pages on `localhost`.
   Nothing has to be downloaded or uploaded.
 
-## 1. Context
+The big-picture diagrams are draw.io: each PNG has its editable `.drawio` beside it in `docs/img/`.
 
-```mermaid
-flowchart LR
-  U(["You"]) -->|"open the pages"| SC["<b>sharecase</b><br/>basket sizing · portfolio analytics"]
-  U -->|"upload a tradebook / holdings file"| SC
-  NF["<b>Netfolio</b> (optional, local)<br/>trades from contract-note emails"] -->|"live.json on localhost"| SC
-  SC -->|"prices, no key"| Y["<b>Yahoo Finance</b><br/>last price · previous close · daily history"]
-  SC -->|"basket handoff, you confirm in Kite"| Z["<b>Zerodha</b><br/>Kite"]
-  F(["A friend"]) -->|"shares a basket file"| U
-```
+## 1. Architecture
 
-## 2. Containers
+![How sharecase works: the Workbench, Dashboard and Tracker compute everything in your browser; Vercel serves the static pages and the keyless /api/price proxy to Yahoo; the Workbench hands basket orders to Kite; Netfolio can serve live.json on localhost](img/architecture.png)
 
-```mermaid
-flowchart LR
-  subgraph V["Vercel"]
-    ST["Static pages<br/>7 HTML files + sorttable.js"]
-    FN["api/price.js<br/>price proxy"]
-  end
-  subgraph B["Your browser"]
-    WB["Workbench<br/>basket.html"]
-    TR["Tracker<br/>baskets.html"]
-    DA["Dashboard<br/>dashboard.html"]
-    LS[("localStorage")]
-  end
-  ST --> B
-  WB & TR & DA -->|"/api/price"| FN
-  FN -->|"Yahoo v8 chart"| Y["Yahoo"]
-  WB & TR & DA <--> LS
-  WB -->|"form POST"| K["kite.zerodha.com/connect/basket"]
-```
+## 2. Pages
 
 | Page | What it does | Where its data comes from |
 |---|---|---|
@@ -57,17 +32,11 @@ switch, and your Kite **API key**. The key is public by design. These pages neve
 
 ## 3. The price API
 
-```mermaid
-flowchart TB
-  RQ["GET /api/price"] --> CO["CORS allowlist"]
-  CO --> Q{"?hist= ?"}
-  Q -->|"yes"| H["daily closes + split events<br/>NSE, then BSE · cached 1 h"]
-  Q -->|"no"| S["?symbols= up to 60 · last price + previous close<br/>series suffix stripped · INR only · cached 60 s"]
-```
-
 - Yahoo sends no CORS header, so a browser can't read it directly; this function can.
 - It needs no key and holds no credentials.
 - It returns a symbol as missing rather than guessing a price.
+- `?symbols=` (up to 60): last price and previous close, series suffix stripped, cached 60 s.
+  `?hist=SYM&from=`: daily closes and split events, NSE first, then BSE, cached 1 h.
 
 ## 4. Inside the Dashboard
 
